@@ -21,7 +21,7 @@ test('complete evidence-led walkthrough reaches release',()=>{
   run(s,'cat archive/echo.txt');assert.match(last(s),/No text generation/);
   run(s,'echo гарбуз','cat sessions/session_08.log');assert.match(last(s),/\$ echo гарбуз/);
   run(s,'check гарбуз','release');assert.equal(s.stage,4);assert.equal(s.ending,'release');
-  assert.match(last(s),/^Ви обрали варіант «Тиша»/);assert.match(filesFor(s)['/archive/echo.txt'],/capture=off/);
+  assert.match(last(s),/^Ви обрали кінцівку «Тиша»/);assert.match(filesFor(s)['/archive/echo.txt'],/capture=off/);
   assert.equal(filesFor(s)['/sessions/session_09.log'],undefined);
 });
 
@@ -175,7 +175,7 @@ test('n cancels restart without losing progress',()=>{const s=solve(start());run
 
 
 test('help columns align and restart does not repeat its confirmation',()=>{
-  const lines=HELP.split('\n').slice(0,12);
+  const lines=HELP.split('\n').slice(0,13);
   for(const line of lines){const match=line.match(/^(.+?) {2,}(\S.*)$/u);assert.ok(match);assert.equal(line.indexOf(match[2]),22,line);}
   assert.match(lines.at(-1),/почати заново$/);assert.ok(!lines.at(-1).includes('y/n'));
 });
@@ -206,7 +206,7 @@ test('final choice is represented once and restored after reload',()=>{
   const s=solve(start());assert.equal(s.transcript.filter(row=>row.kind==='choices').length,1);
   run(s,'pwd','help');assert.equal(s.transcript.filter(row=>row.kind==='choices').length,1);
   const copy=restoreState(JSON.stringify(s),1000);assert.equal(copy.transcript.filter(row=>row.kind==='choices').length,1);
-  for(const ending of ['release','stay']){const next=structuredClone(s);run(next,ending);assert.match(last(next),/^Ви обрали варіант «/);assert.ok(!last(next).includes('ECHO='));assert.ok(!last(next).includes(ARCHIVE_MESSAGES[0]));}
+  for(const ending of ['release','stay']){const next=structuredClone(s);run(next,ending);assert.match(last(next),/^Ви обрали кінцівку «/);assert.ok(!last(next).includes('ECHO='));assert.ok(!last(next).includes(ARCHIVE_MESSAGES[0]));}
 });
 
 test('completion handles hidden, absolute, relative and mid-word paths',()=>{
@@ -234,7 +234,35 @@ test('old completed saves keep the chosen ending with the new short text',()=>{
   for(const ending of ['release','stay']){
     const s=solve(start());run(s,ending);delete s.contentRevision;
     const restored=restoreState(JSON.stringify(s),1000);assert.equal(restored.ending,ending);assert.equal(restored.stage,4);
-    assert.match(restored.transcript.at(-1).text,/^Ви обрали варіант «/);assert.ok(!restored.transcript.some(row=>row.kind==='choices'));
+    assert.match(restored.transcript.at(-1).text,/^Ви обрали кінцівку «/);assert.ok(!restored.transcript.some(row=>row.kind==='choices'));
     assert.ok(notes(restored).includes('«'+ARCHIVE_MESSAGES[2]+'»'));
   }
+});
+
+
+test('pumpkin is available throughout the game, validates arguments and keeps puzzle evidence intact',()=>{
+  for(const s of [start(),toFourth(start()),solve(start())]){
+    const before={stage:s.stage,hints:[...s.hints],pending:s.pendingWord,witnessed:s.witnessedWord,deadline:s.nextReminderAt};
+    assert.equal(execute(s,'pumpkin',1000).action,'pumpkin');
+    assert.deepEqual({stage:s.stage,hints:s.hints,pending:s.pendingWord,witnessed:s.witnessedWord,deadline:s.nextReminderAt},before);
+    assert.equal(execute(s,'pumpkin extra',1000).action,null);assert.match(last(s),/Формат: pumpkin/);
+    assert.deepEqual(complete(s,'pump'),['pumpkin']);
+    assert.ok(HELP.includes('pumpkin'));
+  }
+  for(const ending of ['release','stay']){const s=solve(start());run(s,ending);const count=s.sessionEntries.length;assert.equal(execute(s,'pumpkin').action,'pumpkin');assert.equal(s.ending,ending);assert.equal(s.sessionEntries.length,count);}
+});
+
+test('each solved puzzle emits an explicit success message exactly once',()=>{
+  const s=solve(start());const messages=s.transcript.filter(row=>row.kind==='success');
+  assert.equal(messages.length,4);
+  messages.forEach((row,i)=>assert.ok(row.text.startsWith(`Загадку розв’язано (${i+1}/4).`)));
+  run(s,'check wrong');assert.equal(s.transcript.filter(row=>row.kind==='success').length,4);
+});
+
+test('Tik fortunes come from a fixed pool and do not immediately repeat',async()=>{
+  const {FORTUNES,pickFortune,ENDINGS}=await import('../site/story.js');
+  assert.ok(FORTUNES.length>=10);assert.equal(new Set(FORTUNES).size,FORTUNES.length);
+  for(let i=0;i<100;i++){const previous=FORTUNES[i%FORTUNES.length];const next=pickFortune(previous,()=>i/100);assert.ok(FORTUNES.includes(next));assert.notEqual(next,previous);}
+  assert.equal(pickFortune('',()=>0),FORTUNES[0]);assert.equal(pickFortune('',()=>0.999),FORTUNES.at(-1));
+  assert.notEqual(ENDINGS.release.mascot,ENDINGS.stay.mascot);
 });

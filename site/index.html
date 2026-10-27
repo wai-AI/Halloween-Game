@@ -7,14 +7,18 @@
   <meta name="description" content="Haunted Terminal: Session 07 — геловінська гра DOU у терміналі.">
   <title>Haunted Terminal: Session 07 — DOU</title>
   <link rel="icon" href="./tik.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=2">
-  <script defer src="./game.js?v=2"></script>
+  <link rel="stylesheet" href="./style.css?v=3">
+  <script defer src="./game.js?v=3"></script>
 </head>
 <body>
   <a class="skip" href="#command">До командного рядка</a>
   <main id="app" aria-label="Haunted Terminal: Session 07">
     <h1 class="sr-only">Haunted Terminal: Session 07</h1>
     <div id="output" role="region" aria-label="Вивід термінала" tabindex="0"></div>
+    <div class="terminal-tools">
+      <button type="button" id="back-to-ending" hidden>До підсумку гри</button>
+      <button type="button" id="typing-toggle" aria-pressed="true">Друк: увімкнено</button>
+    </div>
     <form id="command-form" autocomplete="off">
       <label for="command" class="prompt">guest@echo<span id="prompt-path">:/</span>$</label>
       <input id="command" name="command" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" maxlength="500" aria-label="Команда термінала">
@@ -27,6 +31,30 @@
         <button type="button" id="dismiss-tik" aria-label="Закрити нагадування">×</button>
       </div>
       <div class="tik-peek"><img src="./tik.svg" width="112" height="112" alt="Тик визирає з-за кута"><span class="tik-corner" aria-hidden="true"></span></div>
+    </aside>
+    <section id="completion" hidden aria-labelledby="completion-title" tabindex="-1">
+      <div class="completion-inner">
+        <p class="completion-label">SESSION 07 / ЗАВЕРШЕНО</p>
+        <img id="completion-tik" width="144" height="144" alt="">
+        <h2 id="completion-title">Вітаємо! Ви завершили гру.</h2>
+        <p id="completion-choice"></p>
+        <p id="completion-story"></p>
+        <p id="completion-status"></p>
+        <p class="completion-solved">Усі 4 загадки розв’язано.</p>
+        <div class="completion-actions">
+          <button type="button" id="play-again">Зіграти ще раз</button>
+          <button type="button" id="review-terminal">Переглянути термінал</button>
+        </div>
+      </div>
+    </section>
+    <button type="button" id="skip-typing" hidden>Показати весь текст</button>
+    <aside id="fortune" hidden aria-label="Передбачення від Тика">
+      <img src="./tik.svg" width="88" height="88" alt="Тик — піксельний гарбузик">
+      <div class="fortune-bubble">
+        <p class="fortune-label">Тик · передбачення на день</p>
+        <p id="fortune-text" role="status" aria-live="polite"></p>
+        <button type="button" id="dismiss-fortune" aria-label="Закрити передбачення">×</button>
+      </div>
     </aside>
   </main>
   <noscript>Для гри потрібен JavaScript.</noscript>

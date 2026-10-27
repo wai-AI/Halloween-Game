@@ -34,9 +34,28 @@ const ARCHIVE_MESSAGES = [
 ];
 const ARCHIVIST_FINAL = ARCHIVE_MESSAGES[2];
 const ENDINGS = {
-  release: {name: 'Тиша', description: 'Зупинити ECHO. Зберегти архів для читання.', text: 'Ви обрали варіант «Тиша».\n\nECHO зупинено. Архів залишився, але більше ніхто не озветься з нього.'},
-  stay: {name: 'Відлуння', description: 'Залишити ECHO ввімкненим. Відкрити сеанс 09.', text: 'Ви обрали варіант «Відлуння».\n\nЗапис і відтворення тривають. Тепер у наступному архіві буде й ваш сеанс.'}
+  release: {name: 'Тиша', mascot: 'tik-release.svg', alt: 'Тик заплющив очі й заснув', status: 'ECHO зупинено · Архів доступний для читання', description: 'Зупинити ECHO. Зберегти архів для читання.', text: 'Ви обрали кінцівку «Тиша».\n\nECHO зупинено. Архів залишився, але більше ніхто не озветься з нього.'},
+  stay: {name: 'Відлуння', mascot: 'tik-stay.svg', alt: 'Тик у навушниках продовжує слухати запис', status: 'ECHO працює · Сеанс 09 відкрито', description: 'Залишити ECHO ввімкненим. Відкрити сеанс 09.', text: 'Ви обрали кінцівку «Відлуння».\n\nЗапис і відтворення тривають. Тепер у наступному архіві буде й ваш сеанс.'}
 };
+// Репліки Тика — окрема ігрова дрібничка, не повідомлення архіву ECHO.
+const FORTUNES = [
+  'Сьогодні знайдеться рішення задачі, яку ти вже відклав на потім.',
+  'На тебе чекає повідомлення, від якого стане тепліше.',
+  'Сьогодні кава буде смачною, а перерва — вчасною.',
+  'Хтось оцінить те, над чим ти довго працював.',
+  'Одна з дрібних справ сьогодні вирішиться сама собою.',
+  'Сьогодні буде нагода посміятися від душі.',
+  'Несподівана ідея з’явиться, щойно відійдеш від екрана.',
+  'Знайдеться трохи часу на те, що ти любиш.',
+  'Сьогодні ти помітиш, що вже вмієш більше, ніж місяць тому.',
+  'Хороша новина застане тебе зненацька.',
+  'Складна розмова виявиться простішою, ніж здавалося.',
+  'Увечері буде за що подякувати цьому дню.'
+];
+function pickFortune(previous = '', random = Math.random) {
+  const choices = FORTUNES.filter(text => text !== previous);
+  return choices[Math.min(choices.length - 1, Math.max(0, Math.floor(random() * choices.length)))];
+}
 function archivedMessages(state) {
   const entries = [{label: state.stage ? 'archivist / сеанс 07' : 'Невідомий відправник', text: ARCHIVE_MESSAGES[0]}];
   if (state.stage >= 1) entries.push({label: 'archivist / сеанс 07', text: ARCHIVE_MESSAGES[1]});
@@ -79,7 +98,7 @@ function directoriesFor(state) {
 const SAVE_KEY = 'dou.haunted-terminal.session07.v1';
 const REMINDER_MS = 5 * 60 * 1000;
 const VERSION = 1;
-const CONTENT_REVISION = 2;
+const CONTENT_REVISION = 3;
 const HELP = [
   ['help', 'список команд'],
   ['ls [шлях]', 'вміст папки'],
@@ -91,6 +110,7 @@ const HELP = [
   ['echo <слово>', 'вивести слово'],
   ['hint', 'підказка (дві на загадку)'],
   ['notes', 'факти, повідомлення й відкриті підказки'],
+  ['pumpkin', 'Тик і передбачення на день'],
   ['clear', 'очистити екран'],
   ['restart', 'почати заново']
 ].map(([command, description]) => command.padEnd(22) + description).join('\n') + '\n\n↑ / ↓ — історія команд. Tab — доповнити команду або шлях.';
@@ -148,7 +168,7 @@ function acknowledgeReminder(state, now = Date.now()) { state.nextReminderAt = n
 function advance(state, now) {
   const done = state.stage++;
   state.nextReminderAt = now + REMINDER_MS;
-  emit(state, FACTS[done], 'success');
+  emit(state, `Загадку розв’язано (${state.stage}/4).\n${FACTS[done]}`, 'success');
   if (done === 0) {
     emit(state, quoteMessage({label: 'archivist / сеанс 07', text: ARCHIVE_MESSAGES[1]}), 'archive');
     emit(state, 'Відкрито /logs.', 'system');
@@ -243,6 +263,7 @@ function execute(state, input, now = Date.now()) {
       break;
     }
     case 'notes': if (args.length) usage('notes'); else emit(state,notes(state),'note'); break;
+    case 'pumpkin': if (args.length) usage('pumpkin'); else action = 'pumpkin'; break;
     case 'clear': if (args.length) usage('clear'); else { state.transcript = []; emit(state,'Екран очищено. Прогрес збережено. Факти й підказки — notes.','system'); } break;
     case 'restart': {
       if (args.length) usage('restart');
@@ -294,7 +315,7 @@ function restoreState(serialized, now = Date.now()) {
 }
 
 function complete(state, input, caret = input.length) {
-  const commands = ['help','ls','cd','pwd','cat','check','echo','hint','notes','clear','restart',...(state.stage === 4 && !state.ending ? ['release','stay'] : [])];
+  const commands = ['help','ls','cd','pwd','cat','check','echo','hint','notes','pumpkin','clear','restart',...(state.stage === 4 && !state.ending ? ['release','stay'] : [])];
   caret = Math.max(0, Math.min(input.length, caret));
   const before = input.slice(0, caret);
   const start = before.search(/\S*$/u);
@@ -321,7 +342,15 @@ const input = document.getElementById('command');
 const output = document.getElementById('output');
 const announcement = document.getElementById('announcement');
 const tik = document.getElementById('tik');
+const fortune = document.getElementById('fortune');
+const completion = document.getElementById('completion');
+const typingToggle = document.getElementById('typing-toggle');
+const skipTyping = document.getElementById('skip-typing');
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const TYPING_KEY = 'dou.haunted-terminal.typing';
 let state, storageAvailable = true, restored = false, historyIndex = 0, draft = '';
+let typingEnabled = true, reviewTerminal = false, shownEnding = null, lastFortune = '';
+try { typingEnabled = localStorage.getItem(TYPING_KEY) !== 'off'; } catch { /* Optional preference. */ }
 
 try {
   const saved = localStorage.getItem(SAVE_KEY);
@@ -373,7 +402,7 @@ function choiceTable() {
     th.scope = 'col'; th.textContent = ending.name; header.append(th);
     const tdImage = document.createElement('td');
     const image = document.createElement('img');
-    image.src = './tik.svg'; image.alt = 'Тик — піксельний гарбузик';
+    image.src = './' + ending.mascot; image.alt = ending.alt;
     image.width = 96; image.height = 96; image.className = 'choice-tik';
     tdImage.append(image); images.append(tdImage);
     const tdDescription = document.createElement('td');
@@ -389,8 +418,94 @@ function choiceTable() {
   return section;
 }
 
+// State is saved in full before presentation starts. Printing never delays a command.
+let printing = [], printFrame = null, printCleanup = () => {};
+function finishTyping() {
+  if (printFrame !== null) cancelAnimationFrame(printFrame);
+  printCleanup(); printCleanup = () => {};
+  for (const job of printing) {
+    job.element.classList.remove('awaiting-text');
+    for (const part of job.parts) part.node.textContent = part.text;
+  }
+  printing = []; printFrame = null; skipTyping.hidden = true;
+}
+function typeText(elements, scrollContainer) {
+  if (!typingEnabled || reducedMotion.matches || document.hidden) return;
+  const jobs = elements.filter(element => element.textContent.length).map(element => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    const parts = [];
+    while (walker.nextNode()) parts.push({node: walker.currentNode, text: walker.currentNode.textContent});
+    return {element, parts, length: parts.reduce((sum, part) => sum + part.text.length, 0), drawn: -1};
+  });
+  const total = jobs.reduce((sum, job) => sum + job.length, 0);
+  if (!total) return;
+  printing = jobs;
+  for (const job of jobs) {
+    job.element.classList.add('awaiting-text');
+    for (const part of job.parts) part.node.textContent = '';
+  }
+  skipTyping.hidden = false;
+  // Even a long log finishes within 1.8 s; small replies retain a typing rhythm.
+  const duration = Math.min(1800, total * 7);
+  let started;
+  let follow = scrollContainer === output;
+  const stopFollowing = () => { follow = false; };
+  scrollContainer.addEventListener('wheel', stopFollowing, {once: true, passive: true});
+  scrollContainer.addEventListener('touchmove', stopFollowing, {once: true, passive: true});
+  printCleanup = () => {
+    scrollContainer.removeEventListener('wheel', stopFollowing);
+    scrollContainer.removeEventListener('touchmove', stopFollowing);
+  };
+  const tick = timestamp => {
+    started ??= timestamp;
+    let count = Math.min(total, Math.max(1, Math.floor(total * (timestamp - started) / duration)));
+    for (const job of jobs) {
+      const visible = Math.min(job.length, Math.max(0, count));
+      if (visible > 0) job.element.classList.remove('awaiting-text');
+      if (visible !== job.drawn) {
+        let remaining = visible;
+        for (const part of job.parts) {
+          part.node.textContent = part.text.slice(0, Math.max(0, remaining));
+          remaining -= part.text.length;
+        }
+        job.drawn = visible;
+      }
+      count -= job.length;
+    }
+    if (follow) scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    if (timestamp - started >= duration) {
+      finishTyping();
+    } else printFrame = requestAnimationFrame(tick);
+  };
+  printFrame = requestAnimationFrame(tick);
+}
+
+function syncCompletion() {
+  const completed = Boolean(state.ending) && !reviewTerminal;
+  document.body.classList.toggle('completed', completed);
+  completion.hidden = !completed;
+  const skip = document.querySelector('.skip');
+  skip.href = completed ? '#completion' : '#command';
+  skip.textContent = completed ? 'До підсумку гри' : 'До командного рядка';
+  document.getElementById('back-to-ending').hidden = !state.ending;
+  if (!state.ending) { shownEnding = null; return []; }
+  if (shownEnding === state.ending) return [];
+  shownEnding = state.ending;
+  const ending = ENDINGS[state.ending];
+  const image = document.getElementById('completion-tik');
+  image.src = './' + ending.mascot; image.alt = ending.alt;
+  const [choice, story] = ending.text.split('\n\n');
+  document.getElementById('completion-choice').textContent = choice;
+  document.getElementById('completion-story').textContent = story;
+  document.getElementById('completion-status').textContent = ending.status;
+  completion.scrollTop = 0;
+  return [document.getElementById('completion-choice'), document.getElementById('completion-story')];
+}
+
 let renderedRows = [];
-function render() {
+function render(animate = false) {
+  finishTyping();
+  const newElements = [];
   const rows = state.transcript;
   // Append new output; do not recreate and re-announce earlier story messages.
   while (renderedRows.length && renderedRows[0] !== rows[0]) {
@@ -414,25 +529,52 @@ function render() {
       } else line.textContent = item.text;
     }
     output.append(line); renderedRows.push(item);
+    if (!['command', 'file'].includes(item.kind)) newElements.push(line);
   }
   document.getElementById('prompt-path').textContent = ':' + state.cwd;
+  const completionElements = syncCompletion();
   output.scrollTop = output.scrollHeight;
+  if (animate) typeText(completion.hidden ? newElements : completionElements, completion.hidden ? output : completion);
+}
+
+function showFortune() {
+  lastFortune = pickFortune(lastFortune);
+  document.getElementById('fortune-text').textContent = lastFortune;
+  fortune.hidden = false;
+  placeFortune();
+}
+function placeFortune() {
+  if (fortune.hidden) return;
+  const app = document.getElementById('app').getBoundingClientRect();
+  const commandRow = document.getElementById('command-form').getBoundingClientRect();
+  // Keep the mascot inside this iframe and clear of the input, including mobile keyboards.
+  const bottom = completion.hidden ? Math.min(app.height - 12, commandRow.top - app.top - 32) : app.height - 60;
+  const maxX = Math.max(12, app.width - fortune.offsetWidth - 12);
+  const maxY = Math.max(12, bottom - fortune.offsetHeight);
+  fortune.style.left = (12 + Math.random() * (maxX - 12)) + 'px';
+  fortune.style.top = (12 + Math.random() * (maxY - 12)) + 'px';
+  fortune.style.maxHeight = Math.max(80, bottom - 12) + 'px';
 }
 
 function run(command) {
   if (!command.trim()) return;
+  finishTyping();
   tik.hidden = true;
+  fortune.hidden = true;
   announcement.textContent = '';
   const result = execute(state, command);
   state = result.state;
+  if (result.action === 'restarted') reviewTerminal = false;
   input.value = '';
   draft = '';
   historyIndex = state.history.length;
   save();
-  render();
+  render(true);
+  if (result.action === 'pumpkin') showFortune();
   // Keep announcements outside the visible transcript; avoid a second status UI.
   announcement.textContent = state.transcript.at(-1)?.text.slice(0, 500) || '';
-  input.focus({preventScroll: true});
+  if (completion.hidden) input.focus({preventScroll: true});
+  else completion.focus({preventScroll: true});
 }
 
 // Intercept input directly: sandboxed iframes need no form submission permission.
@@ -466,18 +608,46 @@ input.addEventListener('keydown', event => {
 input.addEventListener('input', () => { historyIndex = state.history.length; });
 document.getElementById('dismiss-tik').addEventListener('click', () => { tik.hidden = true; });
 document.getElementById('tik-hint').addEventListener('click', () => run('hint'));
+document.getElementById('dismiss-fortune').addEventListener('click', () => { fortune.hidden = true; });
+window.addEventListener('resize', placeFortune);
+document.getElementById('review-terminal').addEventListener('click', () => {
+  finishTyping(); reviewTerminal = true; render(); input.focus({preventScroll: true});
+});
+document.getElementById('back-to-ending').addEventListener('click', () => {
+  finishTyping(); fortune.hidden = true; tik.hidden = true; reviewTerminal = false; render(); completion.focus({preventScroll: true});
+});
+document.getElementById('play-again').addEventListener('click', () => {
+  reviewTerminal = true; run('restart');
+});
+function updateTypingControl() {
+  const enabled = typingEnabled && !reducedMotion.matches;
+  typingToggle.textContent = enabled ? 'Друк: увімкнено' : 'Друк: вимкнено';
+  typingToggle.setAttribute('aria-pressed', String(enabled));
+  typingToggle.disabled = reducedMotion.matches;
+}
+typingToggle.addEventListener('click', () => {
+  finishTyping(); typingEnabled = !typingEnabled;
+  try { localStorage.setItem(TYPING_KEY, typingEnabled ? 'on' : 'off'); } catch { /* Optional preference. */ }
+  updateTypingControl();
+});
+skipTyping.addEventListener('click', () => {
+  finishTyping();
+  if (completion.hidden) { output.scrollTop = output.scrollHeight; input.focus({preventScroll: true}); }
+});
+reducedMotion.addEventListener('change', () => { finishTyping(); updateTypingControl(); });
 function checkReminder() {
-  if (!document.hidden && reminderDue(state)) {
+  if (!document.hidden && fortune.hidden && reminderDue(state)) {
     acknowledgeReminder(state);
     tik.hidden = false;
     save();
   }
 }
 setInterval(checkReminder, 1000);
-document.addEventListener('visibilitychange', checkReminder);
+document.addEventListener('visibilitychange', () => { if (document.hidden) finishTyping(); checkReminder(); });
 historyIndex = state.history.length;
 save();
-render();
+updateTypingControl();
+render(!restored);
 // No autofocus: an iframe must not steal focus or open the mobile keyboard.
 
 })();

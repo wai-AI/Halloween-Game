@@ -3,7 +3,7 @@ import { TASKS, FACTS, filesFor, directoriesFor, ARCHIVIST_FINAL, ARCHIVE_MESSAG
 export const SAVE_KEY = 'dou.haunted-terminal.session07.v1';
 export const REMINDER_MS = 5 * 60 * 1000;
 export const VERSION = 1;
-export const CONTENT_REVISION = 2;
+export const CONTENT_REVISION = 3;
 export const HELP = [
   ['help', 'список команд'],
   ['ls [шлях]', 'вміст папки'],
@@ -15,6 +15,7 @@ export const HELP = [
   ['echo <слово>', 'вивести слово'],
   ['hint', 'підказка (дві на загадку)'],
   ['notes', 'факти, повідомлення й відкриті підказки'],
+  ['pumpkin', 'Тик і передбачення на день'],
   ['clear', 'очистити екран'],
   ['restart', 'почати заново']
 ].map(([command, description]) => command.padEnd(22) + description).join('\n') + '\n\n↑ / ↓ — історія команд. Tab — доповнити команду або шлях.';
@@ -72,7 +73,7 @@ export function acknowledgeReminder(state, now = Date.now()) { state.nextReminde
 function advance(state, now) {
   const done = state.stage++;
   state.nextReminderAt = now + REMINDER_MS;
-  emit(state, FACTS[done], 'success');
+  emit(state, `Загадку розв’язано (${state.stage}/4).\n${FACTS[done]}`, 'success');
   if (done === 0) {
     emit(state, quoteMessage({label: 'archivist / сеанс 07', text: ARCHIVE_MESSAGES[1]}), 'archive');
     emit(state, 'Відкрито /logs.', 'system');
@@ -167,6 +168,7 @@ export function execute(state, input, now = Date.now()) {
       break;
     }
     case 'notes': if (args.length) usage('notes'); else emit(state,notes(state),'note'); break;
+    case 'pumpkin': if (args.length) usage('pumpkin'); else action = 'pumpkin'; break;
     case 'clear': if (args.length) usage('clear'); else { state.transcript = []; emit(state,'Екран очищено. Прогрес збережено. Факти й підказки — notes.','system'); } break;
     case 'restart': {
       if (args.length) usage('restart');
@@ -218,7 +220,7 @@ export function restoreState(serialized, now = Date.now()) {
 }
 
 export function complete(state, input, caret = input.length) {
-  const commands = ['help','ls','cd','pwd','cat','check','echo','hint','notes','clear','restart',...(state.stage === 4 && !state.ending ? ['release','stay'] : [])];
+  const commands = ['help','ls','cd','pwd','cat','check','echo','hint','notes','pumpkin','clear','restart',...(state.stage === 4 && !state.ending ? ['release','stay'] : [])];
   caret = Math.max(0, Math.min(input.length, caret));
   const before = input.slice(0, caret);
   const start = before.search(/\S*$/u);
