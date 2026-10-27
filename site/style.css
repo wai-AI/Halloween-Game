@@ -1,0 +1,93 @@
+:root {
+  color-scheme: dark;
+  --background: #0a0a0a;
+  --text: #dedede;
+  --muted: #9b9b9b;
+  --accent: #e8b66d;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 14px;
+  line-height: 1.65;
+  background: var(--background);
+  color: var(--text);
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, input { font: inherit; }
+[hidden] { display: none !important; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.skip { position: fixed; top: -60px; left: 16px; color: var(--accent); background: var(--background); z-index: 2; }
+.skip:focus { top: 8px; }
+#app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  padding: 24px;
+}
+#output {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  scrollbar-width: thin;
+  scrollbar-color: #555 var(--background);
+  overscroll-behavior: contain;
+}
+.line { margin: 0 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.line.command { margin-top: 20px; margin-bottom: 5px; }
+.line.system, .line.task, .line.hint, .line.success, .line.archive, .line.error, .line.ending { color: var(--accent); }
+.line.file { color: var(--muted); margin-bottom: 3px; }
+#command-form { display: flex; align-items: center; gap: 8px; padding-top: 12px; flex-shrink: 0; }
+.prompt { flex-shrink: 1; min-width: 0; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#command {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 8px 0;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  caret-color: var(--text);
+}
+#command-form:focus-within .prompt { color: #fff; }
+button { padding: 5px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+button:hover { color: var(--text); }
+button:focus-visible, a:focus-visible, #output:focus-visible { outline: 1px solid var(--accent); outline-offset: 3px; }
+#send { flex-shrink: 0; width: 36px; height: 40px; }
+#tik {
+  position: absolute;
+  bottom: 85px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(360px, calc(100% - 48px));
+  padding: 12px 0 12px 12px;
+  background: var(--background);
+  color: var(--accent);
+}
+.pumpkin { flex-shrink: 0; width: 40px; height: 40px; }
+#tik p { margin: 0; font-size: 12px; line-height: 1.7; }
+#tik-hint { padding: 0; color: inherit; text-decoration: underline; }
+#dismiss-tik { align-self: flex-start; color: inherit; min-width: 28px; }
+body.embed #app { padding: 16px; }
+@media (max-width: 600px) {
+  :root { font-size: 13px; }
+  #app { padding: 16px 12px; }
+  #command-form { gap: 6px; flex-wrap: wrap; padding-top: 8px; }
+  .prompt { flex-basis: 100%; max-width: 100%; font-size: 12px; }
+  #command { font-size: 16px; }
+  #send { width: 40px; height: 44px; }
+  #tik { bottom: 112px; right: 12px; max-width: calc(100% - 24px); }
+  body.embed #app { padding: 12px; }
+}
