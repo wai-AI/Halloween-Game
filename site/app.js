@@ -1,4 +1,4 @@
-import { TASKS } from './story.js';
+import { TASKS, ENDINGS } from './story.js';
 import { SAVE_KEY, freshState, restoreState, welcome, notes, execute, reminderDue, acknowledgeReminder, complete } from './engine.js';
 
 const input = document.getElementById('command');
@@ -16,7 +16,6 @@ if (!state) { state = freshState(); welcome(state); }
 if (!state.transcript.length) {
   if (state.stage === 0) welcome(state);
   else {
-    state.transcript.push({kind: 'note', text: notes(state)});
     state.transcript.push({kind: 'task', text: state.stage < 4 ? TASKS[state.stage].text : state.ending ? 'Гру завершено. Архів доступний для читання.' : 'Обери release або stay.'});
   }
 }
@@ -27,7 +26,8 @@ function append(text, kind = 'system') {
   state.transcript = state.transcript.slice(-160);
 }
 const storageWarning = 'Збереження недоступне. Прогрес триматиметься, доки відкрита сторінка. Спробуй відкрити гру окремою вкладкою.';
-if (restored) append('Сеанс відновлено. Факти й підказки — notes.');
+const resumed = 'Сеанс відновлено. Факти й підказки — notes.';
+if (restored && state.transcript.at(-1)?.text !== resumed) append(resumed);
 if (!storageAvailable) append(storageWarning);
 
 function save() {
@@ -38,13 +38,66 @@ function save() {
   }
 }
 
+function choiceTable() {
+  const section = document.createElement('section');
+  section.className = 'ending-choice';
+  const table = document.createElement('table');
+  table.className = 'ending-options';
+  const caption = document.createElement('caption');
+  caption.textContent = 'Завершення сеансу';
+  table.append(caption);
+  const head = document.createElement('thead');
+  const header = document.createElement('tr');
+  const body = document.createElement('tbody');
+  const images = document.createElement('tr');
+  const descriptions = document.createElement('tr');
+  const commands = document.createElement('tr');
+  for (const [command, ending] of Object.entries(ENDINGS)) {
+    const th = document.createElement('th');
+    th.scope = 'col'; th.textContent = ending.name; header.append(th);
+    const tdImage = document.createElement('td');
+    const image = document.createElement('img');
+    image.src = './tik.svg'; image.alt = 'Тик — піксельний гарбузик';
+    image.width = 96; image.height = 96; image.className = 'choice-tik';
+    tdImage.append(image); images.append(tdImage);
+    const tdDescription = document.createElement('td');
+    tdDescription.textContent = ending.description; descriptions.append(tdDescription);
+    const tdCommand = document.createElement('td');
+    const code = document.createElement('code');
+    code.textContent = command; tdCommand.append(code); commands.append(tdCommand);
+  }
+  head.append(header); body.append(images, descriptions, commands); table.append(head, body);
+  const instruction = document.createElement('p');
+  instruction.textContent = 'Введи release або stay.';
+  section.append(table, instruction);
+  return section;
+}
+
+let renderedRows = [];
 function render() {
-  output.replaceChildren();
-  for (const item of state.transcript) {
-    const line = document.createElement('p');
-    line.className = `line ${item.kind}`;
-    line.textContent = item.text;
-    output.append(line);
+  const rows = state.transcript;
+  // Append new output; do not recreate and re-announce earlier story messages.
+  while (renderedRows.length && renderedRows[0] !== rows[0]) {
+    output.firstElementChild?.remove(); renderedRows.shift();
+  }
+  if (renderedRows.some((row, i) => row !== rows[i])) {
+    output.replaceChildren(); renderedRows = [];
+  }
+  for (const item of rows.slice(renderedRows.length)) {
+    let line;
+    if (item.kind === 'choices') line = choiceTable();
+    else {
+      line = document.createElement('p');
+      line.className = `line ${item.kind}`;
+      if (item.kind === 'note') {
+        for (const part of item.text.split(/(«[\s\S]*?»)/u)) {
+          const span = document.createElement('span');
+          if (part.startsWith('«') && part.endsWith('»')) span.className = 'dialogue';
+          span.textContent = part; line.append(span);
+        }
+      } else line.textContent = item.text;
+    }
+    output.append(line); renderedRows.push(item);
   }
   document.getElementById('prompt-path').textContent = ':' + state.cwd;
   output.scrollTop = output.scrollHeight;
@@ -80,11 +133,17 @@ input.addEventListener('keydown', event => {
     input.setSelectionRange(input.value.length, input.value.length);
   }
   if (event.key === 'Tab' && !event.shiftKey) {
-    const matches = complete(state, input.value);
-    if (matches.length === 1 && matches[0] !== input.value) {
-      event.preventDefault(); input.value = matches[0];
-    } else if (matches.length > 1 && input.value.trim()) {
-      event.preventDefault(); append(matches.join('   '), 'output'); save(); render();
+    event.preventDefault();
+    const caret = input.selectionStart ?? input.value.length;
+    const tokenEnd = caret + (input.value.slice(caret).match(/^\S*/u)?.[0].length || 0);
+    const suffixLength = input.value.length - tokenEnd;
+    const matches = complete(state, input.value, caret);
+    if (matches.length === 1) {
+      input.value = matches[0];
+      const position = input.value.length - suffixLength;
+      input.setSelectionRange(position, position);
+    } else if (matches.length > 1) {
+      append(matches.join('   '), 'output'); save(); render();
     }
   }
 });

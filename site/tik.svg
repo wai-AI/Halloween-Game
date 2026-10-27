@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="96" height="96" shape-rendering="crispEdges">
+<title>Тик — гарбузик</title>
+<path fill="#493529" d="M23 2h7v3h-3v6h-8V7h4z"/>
+<path fill="#8eaa66" d="M24 3h5v2h-3v6h-5V8h3z"/>
+<path fill="#afbe7d" d="M27 6h8v2h-3v2h-6V8h1z"/>
+<path fill="#493529" d="M13 9h9v1h5V9h8v2h4v3h3v4h2v14h-2v5h-4v4h-6v2H15v-2H9v-3H5v-5H3V20h2v-5h3v-3h5z"/>
+<path fill="#d88135" d="M13 11h8v1h7v-1h6v2h4v3h3v5h1v10h-2v5h-4v4H15v-1H9v-4H6V22h1v-5h3v-3h3z"/>
+<path fill="#eda24f" d="M14 12h6v3h-3v4h-2v15h2v5h-4v-2H9v-5H7V23h2v-5h2v-3h3zm11 1h5v4h2v17h-2v6h-6V16h1z"/>
+<path fill="#f5b968" d="M12 16h3v4h-3v4H9v-4h1v-2h2zm14 0h2v5h-2z"/>
+<path fill="#ba692b" d="M19 13h2v5h-2v18h2v4h-4v-5h-1V21h1v-4h2zm16 2h2v5h2v11h-2v5h-3v-3h2V21h-1z"/>
+<path fill="#342b27" d="M11 22h7v8h-7zm17 0h7v8h-7z"/>
+<path fill="#fff0d1" d="M12 23h3v3h-3zm17 0h3v3h-3z"/>
+<path fill="#6b503d" d="M16 27h1v2h-1zm17 0h1v2h-1z"/>
+<path fill="#ee9273" d="M9 30h6v2H9zm24 0h5v2h-5z"/>
+<path fill="#493529" d="M20 31h2v2h4v-2h2v3h-2v1h-4v-1h-2z"/>
+<path fill="#493529" d="M2 28h5v3h3v5H7v-2H4v-2H2zm33 9h7v5h-2v2h-5v-2h-2v-3h2z"/>
+<path fill="#eda24f" d="M3 29h3v3h2v2H6v-1H4v-2H3zm33 9h5v3h-2v2h-3v-2h-2v-2h2z"/>
+<path fill="#f5b968" d="M36 38h4v2h-4z"/>
+</svg>

@@ -1,12 +1,27 @@
-import { TASKS, FACTS, filesFor, directoriesFor, ARCHIVIST_FINAL } from './story.js';
+import { TASKS, FACTS, filesFor, directoriesFor, ARCHIVIST_FINAL, ARCHIVE_MESSAGES, archivedMessages, quoteMessage, ENDINGS } from './story.js';
 
 export const SAVE_KEY = 'dou.haunted-terminal.session07.v1';
 export const REMINDER_MS = 5 * 60 * 1000;
 export const VERSION = 1;
-export const HELP = `help                  команди та поточне завдання\nls [шлях]             вміст папки\nls -a [шлях]          також приховані файли\ncd <шлях>             перейти в папку (cd .. — назад)\npwd                   поточний шлях\ncat <файл>            прочитати файл\ncheck <відповідь>      перевірити відповідь\necho <слово>          залишити власну мітку в журналі\nhint                  підказка (дві на загадку)\nnotes                 факти й відкриті підказки\nclear                 очистити екран, зберігши прогрес\nrestart               почати заново (підтвердження y/n)\n\n↑ / ↓ — історія команд. Tab — доповнити команду або шлях.\nТут працюють лише команди зі списку. Це віртуальний термінал.`;
+export const CONTENT_REVISION = 2;
+export const HELP = [
+  ['help', 'список команд'],
+  ['ls [шлях]', 'вміст папки'],
+  ['ls -a [шлях]', 'також приховані файли'],
+  ['cd <шлях>', 'перейти в папку (cd .. — назад)'],
+  ['pwd', 'поточний шлях'],
+  ['cat <файл>', 'прочитати файл'],
+  ['check <відповідь>', 'перевірити відповідь'],
+  ['echo <слово>', 'вивести слово'],
+  ['hint', 'підказка (дві на загадку)'],
+  ['notes', 'факти, повідомлення й відкриті підказки'],
+  ['clear', 'очистити екран'],
+  ['restart', 'почати заново']
+].map(([command, description]) => command.padEnd(22) + description).join('\n') + '\n\n↑ / ↓ — історія команд. Tab — доповнити команду або шлях.';
+
 
 export function freshState(now = Date.now()) {
-  return { version: VERSION, stage: 0, ending: null, restartPending: false, cwd: '/', hints: [0, 0, 0, 0], nextReminderAt: now + REMINDER_MS,
+  return { version: VERSION, contentRevision: CONTENT_REVISION, stage: 0, ending: null, restartPending: false, cwd: '/', hints: [0, 0, 0, 0], nextReminderAt: now + REMINDER_MS,
     pendingWord: null, witnessedWord: null, sessionEntries: [], history: [], transcript: [], readPaths: [], revealedDirs: [] };
 }
 
@@ -33,9 +48,9 @@ const emit = (state, text, kind = 'output') => {
   while(size>250000 && state.transcript.length>1)size-=state.transcript.shift().text.length;
 };
 export function welcome(state) {
-  emit(state, 'HAUNTED TERMINAL: SESSION 07\nDOU ARCHIVE — TERMINAL 07\nЗнімок: 31.10.2019 · останній сеанс: 07 · оператор: UNKNOWN', 'system');
-  emit(state, '[Невідомий відправник]\nНарешті. Я вже думав, що сюди більше ніхто не повернеться.', 'archive');
-  emit(state, 'Архів відкрито в гостьовому режимі. Спробуй ls, щоб оглянути папки, і cat <шлях>, щоб прочитати файл. help — команди. notes — факти й підказки.', 'output');
+  emit(state, 'Welcome to Ubuntu 22.04.5 LTS (GNU/Linux 5.15.0-119-generic x86_64)\n\n * Documentation:  help\n * Session notes:  notes\n\n System information as of Sat Oct 31 00:13:00 UTC 2026\n\n  System load:  0.00               Processes:       3\n  Usage of /:   12.4% of 19.5GB    Users logged in: 1\n  Memory usage: 7%                 Swap usage:      0%\n\nLast login: Thu Oct 31 23:47:18 2019 on pts/0', 'system');
+  emit(state, quoteMessage(archivedMessages(state)[0]), 'archive');
+  emit(state, 'Гостьовий сеанс відкрито. help — команди, notes — записи сеансу.', 'output');
   emit(state, TASKS[0].text, 'task');
 }
 
@@ -46,6 +61,7 @@ export function notes(state) {
     if (stage > state.stage) return;
     for (let i = 0; i < used; i++) hints.push(`[${TASKS[stage].short} · ${i + 1}/2]\n${TASKS[stage].hints[i]}`);
   });
+  sections.push('Архівні повідомлення:\n' + archivedMessages(state).map(quoteMessage).join('\n\n'));
   if (hints.length) sections.push('Відкриті підказки:\n' + hints.join('\n\n'));
   if (state.stage === 4) sections.push(state.ending === 'release' ? 'Кінцівка: Тиша. ECHO зупинено. Архів доступний для читання.' : state.ending === 'stay' ? 'Кінцівка: Відлуння. ECHO активний. Сеанс 09 відкрито.' : 'Далі: release — зупинити ECHO; stay — залишити запис і відтворення.');
   return sections.join('\n\n');
@@ -58,15 +74,15 @@ function advance(state, now) {
   state.nextReminderAt = now + REMINDER_MS;
   emit(state, FACTS[done], 'success');
   if (done === 0) {
-    emit(state, '[ARCHIVIST]\nТи знайшов моє ім’я… Тоді чому я досі тут?', 'archive');
+    emit(state, quoteMessage({label: 'archivist / сеанс 07', text: ARCHIVE_MESSAGES[1]}), 'archive');
     emit(state, 'Відкрито /logs.', 'system');
   }
   if (done === 1) emit(state, 'Відкрито /archive. Інструкція — у README.txt.', 'system');
   if (done === 2) emit(state, 'Архів відновлено. Доступні /archive/echo.txt та /sessions/session_08.log. Поточний сеанс — 08; сеанс 07 належав archivist.', 'system');
   if (state.stage < 4) emit(state, TASKS[state.stage].text, 'task');
   else {
-    emit(state, '[Архів сеансу 07 / archivist / 2019-10-31]\n' + ARCHIVIST_FINAL, 'archive');
-    emit(state, 'release — зупинити ECHO, зберігши архів для читання.\nstay — залишити ECHO ввімкненим і відкрити сеанс 09.\n\nВведи обрану команду. Обидва варіанти завершують гру.', 'task');
+    emit(state, quoteMessage({label: 'archivist / сеанс 07 / 31.10.2019', text: ARCHIVIST_FINAL}), 'archive');
+    emit(state, 'Введи release або stay.', 'choices');
   }
 }
 
@@ -96,7 +112,7 @@ export function execute(state, input, now = Date.now()) {
     emit(state, 'Перезапуск скасовано.', 'system'); return {state, action: null};
   }
   switch (cmd) {
-    case 'help': if (args.length) usage('help'); else { emit(state, HELP); emit(state, state.stage < 4 ? TASKS[state.stage].text : state.ending ? 'Гру завершено. Архів доступний через cat, факти й підказки — notes.' : 'Обери release або stay.', 'task'); } break;
+    case 'help': if (args.length) usage('help'); else emit(state, HELP); break;
     case 'pwd': if (args.length) usage('pwd'); else emit(state, state.cwd); break;
     case 'ls': {
       const all = args.includes('-a'); const rest = args.filter(x => x !== '-a');
@@ -129,7 +145,7 @@ export function execute(state, input, now = Date.now()) {
       const answer = args.join(' ').toLowerCase();
       const correct = [answer === 'archivist', answer === '042', answer === 'moth ash cinder', args.length === 1 && args[0] === state.pendingWord && args[0] === state.witnessedWord][state.stage];
       if (correct) advance(state, now);
-      else if (state.stage === 3 && args[0] === state.pendingWord && !state.witnessedWord) fail('Мітку додано. Тепер перечитай /sessions/session_08.log, щоб побачити її в записі, й повтори check.');
+      else if (state.stage === 3 && args[0] === state.pendingWord && !state.witnessedWord) fail('Спершу знайди цю мітку в журналі поточного сеансу.');
       else fail('Не збігається. Перевір файли ще раз. За потреби введи hint.');
       break;
     }
@@ -166,8 +182,7 @@ export function execute(state, input, now = Date.now()) {
       if (state.stage < 4) { fail('Ця команда стане доступною після перевірки поточного сеансу.'); break; }
       if (state.ending) { emit(state,'Вибір уже зроблено. Для іншої кінцівки почни нове проходження.','system'); break; }
       state.ending = cmd;
-      if (cmd === 'release') emit(state, 'ECHO=STOPPED\nARCHIVE=READ_ONLY\nSESSION_08=CLOSED\n\nТиша\n\nЗапис зупинено. Архів збережено. Цього разу нових повідомлень не буде.', 'ending');
-      else emit(state, 'ECHO=ACTIVE\nSESSION_08=CLOSED\nSESSION_09=OPEN\n\nВідлуння\n\nСеанс 09 відкрито. ECHO продовжує запис і відтворення.\n\n[Відтворення з архіву сеансу 07 / archivist]\nНарешті. Я вже думав, що сюди більше ніхто не повернеться.', 'ending');
+      emit(state, ENDINGS[cmd].text, 'ending');
       break;
     }
     default: fail(`Невідома команда «${cmd}». Список доступних команд — help.`);
@@ -189,20 +204,37 @@ export function restoreState(serialized, now = Date.now()) {
     for (const k of ['pendingWord','witnessedWord']) if (typeof raw[k] === 'string' && /^[\p{L}\p{N}_-]{1,40}$/u.test(raw[k])) state[k]=raw[k];
     if (!state.pendingWord || !state.sessionEntries.includes(`$ echo ${state.pendingWord}`)) {state.pendingWord=null;state.witnessedWord=null;}
     if (state.witnessedWord !== state.pendingWord) state.witnessedWord=null;
-    const kinds=['output','command','error','success','system','archive','task','file','hint','note','ending'];
+    const kinds=['output','command','error','success','system','archive','task','file','hint','note','ending','choices'];
     state.transcript=Array.isArray(raw.transcript) ? raw.transcript.filter(x=>x && kinds.includes(x.kind) && typeof x.text==='string' && x.text.length<=170000).slice(-160).map(x=>({kind:x.kind,text:x.text})) : [];
     state.nextReminderAt=Number.isFinite(raw.nextReminderAt) && raw.nextReminderAt > 0 && raw.nextReminderAt <= now + REMINDER_MS ? raw.nextReminderAt : now+REMINDER_MS;
+    if (raw.contentRevision !== CONTENT_REVISION) {
+      // Preserve progress, but retire old prose, repeated messages and renamed file paths.
+      state.transcript = [{kind: 'system', text: 'Сеанс відновлено. Попередні повідомлення та факти — notes.'}];
+      if (state.stage < 4) state.transcript.push({kind: 'task', text: TASKS[state.stage].text});
+      else state.transcript.push({kind: state.ending ? 'ending' : 'choices', text: state.ending ? ENDINGS[state.ending].text : 'Введи release або stay.'});
+    }
     return state;
   } catch { return null; }
 }
 
-export function complete(state, input) {
-  const commands=['help','ls','cd','pwd','cat','check','echo','hint','notes','clear','restart',...(state.stage === 4 && !state.ending ? ['release','stay'] : [])];
-  if (!/\s/.test(input)) return commands.filter(x=>x.startsWith(input));
-  const tokens=input.split(/\s+/u); const cmd=tokens[0]; const typed=tokens.at(-1);
+export function complete(state, input, caret = input.length) {
+  const commands = ['help','ls','cd','pwd','cat','check','echo','hint','notes','clear','restart',...(state.stage === 4 && !state.ending ? ['release','stay'] : [])];
+  caret = Math.max(0, Math.min(input.length, caret));
+  const before = input.slice(0, caret);
+  const start = before.search(/\S*$/u);
+  const end = caret + (input.slice(caret).match(/^\S*/u)?.[0].length || 0);
+  const typed = input.slice(start, caret);
+  const lead = input.slice(0, start);
+  const tail = input.slice(end);
+  if (!lead.trim()) return commands.filter(command => command.startsWith(typed.toLowerCase())).map(command => lead + command + tail);
+  const cmd = input.trimStart().split(/\s+/u)[0].toLowerCase();
   if (!['ls','cd','cat'].includes(cmd)) return [];
-  const slash=typed.lastIndexOf('/'); const folder=slash<0 ? '.' : typed.slice(0,slash+1); const partial=typed.slice(slash+1);
-  const items=listDirectory(state,normalizePath(state.cwd,folder),state.revealedDirs.includes(normalizePath(state.cwd,folder))) || [];
-  const prefix=input.slice(0,input.length-typed.length)+(slash<0?'':typed.slice(0,slash+1));
-  return items.filter(x=>x.name.startsWith(partial) && (cmd!=='cd'||x.directory)).map(x=>prefix+x.name+(x.directory?'/':''));
+  const slash = typed.lastIndexOf('/');
+  const folder = slash < 0 ? '.' : typed.slice(0, slash + 1);
+  const partial = typed.slice(slash + 1);
+  const path = normalizePath(state.cwd, folder);
+  // Like a shell: a dot typed explicitly is enough to complete a dotfile.
+  const items = listDirectory(state, path, partial.startsWith('.') || state.revealedDirs.includes(path)) || [];
+  const prefix = lead + (slash < 0 ? '' : typed.slice(0, slash + 1));
+  return items.filter(item => item.name.startsWith(partial) && (cmd !== 'cd' || item.directory)).map(item => prefix + item.name + (item.directory ? '/' : '') + tail);
 }

@@ -6,9 +6,9 @@
   <meta name="theme-color" content="#0a0a0a">
   <meta name="description" content="Haunted Terminal: Session 07 — геловінська гра DOU у терміналі.">
   <title>Haunted Terminal: Session 07 — DOU</title>
-  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css">
-  <script defer src="./game.js"></script>
+  <link rel="icon" href="./tik.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css?v=2">
+  <script defer src="./game.js?v=2"></script>
 </head>
 <body>
   <a class="skip" href="#command">До командного рядка</a>
@@ -22,9 +22,11 @@
     </form>
     <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
     <aside id="tik" hidden aria-label="Нагадування від Тика">
-      <svg class="pumpkin" viewBox="0 0 20 20" role="img" aria-label="Тик, піксельний гарбузик" shape-rendering="crispEdges"><path fill="currentColor" d="M10 1h3v2h-1v3H9V4h1zM5 5h10v1h2v2h1v7h-2v2H4v-2H2V8h1V6h2z"/><path fill="#0a0a0a" d="M5 9h2v2H5zm8 0h2v2h-2zM6 13h2v1h4v-1h2v2h-2v1H8v-1H6z"/></svg>
-      <p>Псссс... Тут є підказки, якщо що. Введи <button type="button" id="tik-hint">hint</button></p>
-      <button type="button" id="dismiss-tik" aria-label="Закрити нагадування">×</button>
+      <div class="tik-bubble">
+        <p>Псссс... Тут є підказки, якщо що. Введи <button type="button" id="tik-hint">hint</button></p>
+        <button type="button" id="dismiss-tik" aria-label="Закрити нагадування">×</button>
+      </div>
+      <div class="tik-peek"><img src="./tik.svg" width="112" height="112" alt="Тик визирає з-за кута"><span class="tik-corner" aria-hidden="true"></span></div>
     </aside>
   </main>
   <noscript>Для гри потрібен JavaScript.</noscript>

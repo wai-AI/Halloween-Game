@@ -2,7 +2,6 @@
 (()=>{
 'use strict';
 // story.js
-// Recovered plot and answers are preserved. See docs/scenario.md for provenance.
 const TASKS = [
   { title: 'Знайди оператора', short: 'Оператор', text: 'Хто працював у сеансі 07? Знайди його логін і введи check <логін>.', hints: [
     'У sessions/session_07.log є ID оператора. Пошукай відповідний обліковий запис у registry/. Команда ls -a показує приховані файли.',
@@ -12,13 +11,13 @@ const TASKS = [
     'Підпис повідомлення ще не означає, що користувач увійшов у систему. Зістав relay tickets у messages.log та relay.log.',
     'R-117, R-118 і R-119 ведуть до source=proc:042. Введи check 042.'
   ]},
-  { title: 'Віднови архів', short: 'Архів', text: 'У /archive/parts збереглися фрагменти. Обери три для процесу 042 та розташуй за часом подій: check <назва> <назва> <назва>. Без .frg.', hints: [
+  { title: 'Віднови архів', short: 'Архів', text: 'У /archive/parts збереглися фрагменти. Обери три для процесу 042 та розташуй за часом подій: check <назва> <назва> <назва>.', hints: [
     'Порівняй source та час у кожному фрагменті. Один із них належить іншому процесу.',
     'Потрібні moth (23:47:18), ash (23:54:02), cinder (23:58:23). static належить процесу 063. Введи check moth ash cinder.'
   ]},
-  { title: 'Перевір запис сеансу', short: 'Сеанс 08', text: 'Чи записує ECHO те, що ти вводиш зараз? Додай власну мітку командою echo <слово>, перечитай /sessions/session_08.log, а тоді введи check <те саме слово>.', hints: [
-    'Старий рік у журналі — це архівний годинник. Залиши слово, якого немає в старому записі: echo <слово>. Потім відкрий session_08.log.',
-    'Наприклад: echo гарбуз → cat /sessions/session_08.log → check гарбуз. Можеш обрати інше слово.'
+  { title: 'Перевір запис сеансу', short: 'Сеанс 08', text: 'Журнал сеансу 08 має дату 2019 року. Це старий запис чи він змінюється просто зараз? Знайди доказ і передай його командою check.', hints: [
+    'Годинник відновлено зі знімка, тому сама дата нічого не доводить. Спробуй залишити щось своє й перевір, чи це з’явиться в журналі. Список команд є в help.',
+    'Обери власне слово. Наприклад: echo гарбуз → cat /sessions/session_08.log → check гарбуз.'
   ]}
 ];
 
@@ -28,35 +27,49 @@ const FACTS = [
   'Процес 042 — ECHO. Він записує термінальні сеанси й відтворює збережені повідомлення. Нових реплік він не створює.',
   'ECHO записує поточний сеанс 08. Власна мітка з echo з’явилася в журналі. Дата 2019 року взята з відновленого архівного годинника.'
 ];
-
-const ARCHIVIST_FINAL = 'Ми створили ECHO, щоб нічого не втрачати. Але так і не навчили його забувати.\n\nЯкщо ти дійшов сюди, рішення тепер за тобою.';
+const ARCHIVE_MESSAGES = [
+  'Нарешті. Я вже думав, що сюди більше ніхто не повернеться.',
+  'Ти знайшов моє ім’я… Тоді чому я досі тут?',
+  'Ми створили ECHO, щоб нічого не втрачати. Але так і не навчили його забувати.\n\nЯкщо ти дійшов сюди, рішення тепер за тобою.'
+];
+const ARCHIVIST_FINAL = ARCHIVE_MESSAGES[2];
+const ENDINGS = {
+  release: {name: 'Тиша', description: 'Зупинити ECHO. Зберегти архів для читання.', text: 'Ви обрали варіант «Тиша».\n\nECHO зупинено. Архів залишився, але більше ніхто не озветься з нього.'},
+  stay: {name: 'Відлуння', description: 'Залишити ECHO ввімкненим. Відкрити сеанс 09.', text: 'Ви обрали варіант «Відлуння».\n\nЗапис і відтворення тривають. Тепер у наступному архіві буде й ваш сеанс.'}
+};
+function archivedMessages(state) {
+  const entries = [{label: state.stage ? 'archivist / сеанс 07' : 'Невідомий відправник', text: ARCHIVE_MESSAGES[0]}];
+  if (state.stage >= 1) entries.push({label: 'archivist / сеанс 07', text: ARCHIVE_MESSAGES[1]});
+  if (state.stage >= 4) entries.push({label: 'archivist / сеанс 07 / 31.10.2019', text: ARCHIVIST_FINAL});
+  return entries;
+}
+const quoteMessage = ({label, text}) => `[${label}]\n«${text}»`;
 
 function filesFor(state) {
   const files = {
-    '/sessions/session_07.log': `SESSION=07\nSNAPSHOT=2019-10-31\nUSER_ID=014\n23:47:18 LOGIN_OK\n23:54:02 SESSION_INTERRUPTED\n23:58:23 RELAY_DELIVERY\n\n[Повідомлення збережено в архіві]\nНарешті. Я вже думав, що сюди більше ніхто не повернеться.`,
-    '/registry/.accounts.csv': 'uid,login,status\n001,root,LOCKED\n014,archivist,DELETED\n028,backup,DISABLED'
+    '/sessions/session_07.log': 'SESSION=07\nUSER_ID=014\nTTY=pts/0\nSTARTED_AT=2019-10-31T23:47:18Z\nENDED_AT=2019-10-31T23:54:02Z\nEXIT_STATUS=129\n\n2019-10-31T23:47:18Z LOGIN_OK uid=014 tty=pts/0\n2019-10-31T23:54:02Z SESSION_INTERRUPTED signal=SIGHUP\n2019-10-31T23:58:23Z RELAY_DELIVERY ticket=R-117',
+    '/registry/.accounts.csv': 'uid,login,status,changed_at\n000,root,LOCKED,2019-10-31T23:59:00Z\n014,archivist,DELETED,2019-10-31T23:58:00Z\n028,backup,DISABLED,2019-10-30T18:20:11Z'
   };
   if (state.stage >= 1) Object.assign(files, {
-    '/logs/auth.log': '2019-10-31 23:58:00 uid=014 ACCOUNT_DELETED\n2019-10-31 23:58:00 uid=014 TOKEN_REVOKED\n2026-10-31 00:13:00 uid=guest SESSION_OPEN\n\nПісля видалення UID 014 успішних входів цього користувача немає.',
-    '/logs/messages.log': '2019-10-31 23:58:23 ticket=R-117 display_as=archivist\n2026-10-31 00:13:08 ticket=R-118 display_as=archivist\n2026-10-31 00:14:11 ticket=R-119 display_as=archivist\n\nR-118: Нарешті. Я вже думав, що сюди більше ніхто не повернеться.\nR-119: Ти знайшов моє ім’я… Тоді чому я досі тут?',
-    '/logs/relay.log': 'ticket=R-117 source=proc:042\nticket=R-118 source=proc:042\nticket=R-119 source=proc:042\n\nУсі три доставки надійшли з одного процесу.'
+    '/logs/auth.log': '2019-10-31T23:47:18Z auth: LOGIN_OK uid=014 tty=pts/0\n2019-10-31T23:54:02Z auth: SESSION_CLOSED uid=014 reason=hangup\n2019-10-31T23:58:00Z auth: ACCOUNT_DELETED uid=014\n2019-10-31T23:58:00Z auth: TOKEN_REVOKED uid=014\n2026-10-31T00:13:00Z auth: SESSION_OPEN uid=guest tty=pts/1',
+    '/logs/messages.log': '2019-10-31T23:58:23Z message: ticket=R-117 display_as=archivist message_id=07:001\n2026-10-31T00:13:08Z message: ticket=R-118 display_as=archivist message_id=07:001\n2026-10-31T00:14:11Z message: ticket=R-119 display_as=archivist message_id=07:002',
+    '/logs/relay.log': '2019-10-31T23:58:23Z relay: ticket=R-117 source=proc:042 status=delivered\n2026-10-31T00:13:08Z relay: ticket=R-118 source=proc:042 status=delivered\n2026-10-31T00:14:11Z relay: ticket=R-119 source=proc:042 status=delivered'
   });
   if (state.stage >= 2) Object.assign(files, {
-    '/archive/README.txt': 'Відновлення архіву процесу 042\n\nФрагменти лежать у parts/. Для відновлення потрібні три фрагменти цього процесу в порядку подій.\n\nПеревірка: check <назва> <назва> <назва>\nНазви вводь без .frg.',
-    '/archive/parts/moth.frg': 'fragment=moth\nsource=proc:042\n2019-10-31 23:47:18 LOGIN_OK\n\nУвімкнено запис термінального сеансу 07.',
-    '/archive/parts/ash.frg': 'fragment=ash\nsource=proc:042\n2019-10-31 23:54:02 SESSION_INTERRUPTED\n\nСеанс перервано. Буфер повідомлень збережено.',
-    '/archive/parts/cinder.frg': 'fragment=cinder\nsource=proc:042\n2019-10-31 23:58:23 RELAY_DELIVERY\n\nЗбережене повідомлення передано на відтворення.',
-    '/archive/parts/static.frg': 'fragment=static\nsource=proc:063\n2019-10-31 23:50:11 CACHE_FLUSH\n\nОчищено кеш іншого процесу.'
+    '/archive/README.txt': 'Archive recovery\n================\n\nsource: proc:042\nsegments: 3\norder: timestamp ASC\n\nФрагменти: parts/\nВідновлення: check <назва> <назва> <назва>',
+    '/archive/parts/moth': '2019-10-31T23:47:18Z source=proc:042 session=07 event=LOGIN_OK uid=014 tty=pts/0',
+    '/archive/parts/ash': '2019-10-31T23:54:02Z source=proc:042 session=07 event=SESSION_INTERRUPTED signal=SIGHUP',
+    '/archive/parts/cinder': '2019-10-31T23:58:23Z source=proc:042 session=07 event=RELAY_DELIVERY ticket=R-117',
+    '/archive/parts/static': '2019-10-31T23:50:11Z source=proc:063 event=CACHE_FLUSH entries=128 status=ok'
   });
   if (state.stage >= 3) {
-    files['/archive/echo.txt'] = `ECHO / proc:042\n\nПризначення: запис термінальних сеансів і відтворення архівних повідомлень.\nНових діалогів ECHO не створює. Репліки archivist — записи сеансу 07.\n\narchive_clock=2019-10-31\ncurrent_session=${state.ending === 'stay' ? '09' : '08'}\ncurrent_user=guest\nrecording=${state.ending === 'release' ? 'OFF' : 'ON'}\n\nПісля відновлення використовується годинник з архіву. Дата в журналі не підтверджує давність запису.\nЖурнали доставки в /logs використовують час вузла (2026), а журнал сеансу — archive_clock (2019).\n\nПеревірка запису: echo <власне слово> → cat /sessions/session_08.log → check <те саме слово>.`;
+    files['/archive/echo.txt'] = `# ECHO — terminal session recorder\n# Replay uses stored messages only. No text generation.\n\n[service]\npid=042\ncapture=${state.ending === 'release' ? 'off' : 'on'}\nreplay=${state.ending === 'release' ? 'off' : 'on'}\nreplay_source=session_07\n\n[clock]\nsource=snapshot\nepoch=2019-10-31\n# Relay logs use the host clock; session logs use the snapshot clock.\n\n[session]\nid=${state.ending === 'stay' ? '09' : '08'}\nuser=guest\noutput=/sessions/session_${state.ending === 'stay' ? '09' : '08'}.log`;
     files['/sessions/session_08.log'] = `SESSION=08\nUSER=guest\nCLOCK=ARCHIVE / 2019-10-31\nRECORDING=${state.ending ? 'CLOSED' : 'ON'}\n\n${state.sessionEntries.map((entry, i) => `2019-10-31 [${String(i + 1).padStart(4, '0')}] ${entry}`).join('\n')}`;
   }
-  if (state.stage >= 4) files['/archive/last_message.txt'] = `[Архів сеансу 07 / archivist / 2019-10-31]\n\n${ARCHIVIST_FINAL}\n\nrelease — зупинити ECHO; архів лишиться доступним для читання.\nstay — залишити запис і відтворення ввімкненими; відкрити сеанс 09.`;
-  if (state.ending === 'stay') files['/sessions/session_09.log'] = 'SESSION=09\nUSER=guest\nECHO=ACTIVE\nRECORDING=ON\nREPLAY=ON\n\n[Відтворення з архіву сеансу 07 / archivist]\nНарешті. Я вже думав, що сюди більше ніхто не повернеться.';
+  if (state.stage >= 4) files['/archive/last_message.txt'] = 'session=07\nuid=014\nmessage_id=07:003\nrecorded_at=2019-10-31T23:58:23Z\nplayback=delivered';
+  if (state.ending === 'stay') files['/sessions/session_09.log'] = 'SESSION=09\nUSER=guest\nECHO=ACTIVE\nRECORDING=ON\nREPLAY=ON\n\n2019-10-31 [0001] SESSION_OPEN uid=guest\n2019-10-31 [0002] REPLAY message_id=07:001';
   return files;
 }
-
 function directoriesFor(state) {
   return ['/', '/sessions', '/registry', ...(state.stage >= 1 ? ['/logs'] : []), ...(state.stage >= 2 ? ['/archive', '/archive/parts'] : [])];
 }
@@ -66,10 +79,25 @@ function directoriesFor(state) {
 const SAVE_KEY = 'dou.haunted-terminal.session07.v1';
 const REMINDER_MS = 5 * 60 * 1000;
 const VERSION = 1;
-const HELP = `help                  команди та поточне завдання\nls [шлях]             вміст папки\nls -a [шлях]          також приховані файли\ncd <шлях>             перейти в папку (cd .. — назад)\npwd                   поточний шлях\ncat <файл>            прочитати файл\ncheck <відповідь>      перевірити відповідь\necho <слово>          залишити власну мітку в журналі\nhint                  підказка (дві на загадку)\nnotes                 факти й відкриті підказки\nclear                 очистити екран, зберігши прогрес\nrestart               почати заново (підтвердження y/n)\n\n↑ / ↓ — історія команд. Tab — доповнити команду або шлях.\nТут працюють лише команди зі списку. Це віртуальний термінал.`;
+const CONTENT_REVISION = 2;
+const HELP = [
+  ['help', 'список команд'],
+  ['ls [шлях]', 'вміст папки'],
+  ['ls -a [шлях]', 'також приховані файли'],
+  ['cd <шлях>', 'перейти в папку (cd .. — назад)'],
+  ['pwd', 'поточний шлях'],
+  ['cat <файл>', 'прочитати файл'],
+  ['check <відповідь>', 'перевірити відповідь'],
+  ['echo <слово>', 'вивести слово'],
+  ['hint', 'підказка (дві на загадку)'],
+  ['notes', 'факти, повідомлення й відкриті підказки'],
+  ['clear', 'очистити екран'],
+  ['restart', 'почати заново']
+].map(([command, description]) => command.padEnd(22) + description).join('\n') + '\n\n↑ / ↓ — історія команд. Tab — доповнити команду або шлях.';
+
 
 function freshState(now = Date.now()) {
-  return { version: VERSION, stage: 0, ending: null, restartPending: false, cwd: '/', hints: [0, 0, 0, 0], nextReminderAt: now + REMINDER_MS,
+  return { version: VERSION, contentRevision: CONTENT_REVISION, stage: 0, ending: null, restartPending: false, cwd: '/', hints: [0, 0, 0, 0], nextReminderAt: now + REMINDER_MS,
     pendingWord: null, witnessedWord: null, sessionEntries: [], history: [], transcript: [], readPaths: [], revealedDirs: [] };
 }
 
@@ -96,9 +124,9 @@ const emit = (state, text, kind = 'output') => {
   while(size>250000 && state.transcript.length>1)size-=state.transcript.shift().text.length;
 };
 function welcome(state) {
-  emit(state, 'HAUNTED TERMINAL: SESSION 07\nDOU ARCHIVE — TERMINAL 07\nЗнімок: 31.10.2019 · останній сеанс: 07 · оператор: UNKNOWN', 'system');
-  emit(state, '[Невідомий відправник]\nНарешті. Я вже думав, що сюди більше ніхто не повернеться.', 'archive');
-  emit(state, 'Архів відкрито в гостьовому режимі. Спробуй ls, щоб оглянути папки, і cat <шлях>, щоб прочитати файл. help — команди. notes — факти й підказки.', 'output');
+  emit(state, 'Welcome to Ubuntu 22.04.5 LTS (GNU/Linux 5.15.0-119-generic x86_64)\n\n * Documentation:  help\n * Session notes:  notes\n\n System information as of Sat Oct 31 00:13:00 UTC 2026\n\n  System load:  0.00               Processes:       3\n  Usage of /:   12.4% of 19.5GB    Users logged in: 1\n  Memory usage: 7%                 Swap usage:      0%\n\nLast login: Thu Oct 31 23:47:18 2019 on pts/0', 'system');
+  emit(state, quoteMessage(archivedMessages(state)[0]), 'archive');
+  emit(state, 'Гостьовий сеанс відкрито. help — команди, notes — записи сеансу.', 'output');
   emit(state, TASKS[0].text, 'task');
 }
 
@@ -109,6 +137,7 @@ function notes(state) {
     if (stage > state.stage) return;
     for (let i = 0; i < used; i++) hints.push(`[${TASKS[stage].short} · ${i + 1}/2]\n${TASKS[stage].hints[i]}`);
   });
+  sections.push('Архівні повідомлення:\n' + archivedMessages(state).map(quoteMessage).join('\n\n'));
   if (hints.length) sections.push('Відкриті підказки:\n' + hints.join('\n\n'));
   if (state.stage === 4) sections.push(state.ending === 'release' ? 'Кінцівка: Тиша. ECHO зупинено. Архів доступний для читання.' : state.ending === 'stay' ? 'Кінцівка: Відлуння. ECHO активний. Сеанс 09 відкрито.' : 'Далі: release — зупинити ECHO; stay — залишити запис і відтворення.');
   return sections.join('\n\n');
@@ -121,15 +150,15 @@ function advance(state, now) {
   state.nextReminderAt = now + REMINDER_MS;
   emit(state, FACTS[done], 'success');
   if (done === 0) {
-    emit(state, '[ARCHIVIST]\nТи знайшов моє ім’я… Тоді чому я досі тут?', 'archive');
+    emit(state, quoteMessage({label: 'archivist / сеанс 07', text: ARCHIVE_MESSAGES[1]}), 'archive');
     emit(state, 'Відкрито /logs.', 'system');
   }
   if (done === 1) emit(state, 'Відкрито /archive. Інструкція — у README.txt.', 'system');
   if (done === 2) emit(state, 'Архів відновлено. Доступні /archive/echo.txt та /sessions/session_08.log. Поточний сеанс — 08; сеанс 07 належав archivist.', 'system');
   if (state.stage < 4) emit(state, TASKS[state.stage].text, 'task');
   else {
-    emit(state, '[Архів сеансу 07 / archivist / 2019-10-31]\n' + ARCHIVIST_FINAL, 'archive');
-    emit(state, 'release — зупинити ECHO, зберігши архів для читання.\nstay — залишити ECHO ввімкненим і відкрити сеанс 09.\n\nВведи обрану команду. Обидва варіанти завершують гру.', 'task');
+    emit(state, quoteMessage({label: 'archivist / сеанс 07 / 31.10.2019', text: ARCHIVIST_FINAL}), 'archive');
+    emit(state, 'Введи release або stay.', 'choices');
   }
 }
 
@@ -159,7 +188,7 @@ function execute(state, input, now = Date.now()) {
     emit(state, 'Перезапуск скасовано.', 'system'); return {state, action: null};
   }
   switch (cmd) {
-    case 'help': if (args.length) usage('help'); else { emit(state, HELP); emit(state, state.stage < 4 ? TASKS[state.stage].text : state.ending ? 'Гру завершено. Архів доступний через cat, факти й підказки — notes.' : 'Обери release або stay.', 'task'); } break;
+    case 'help': if (args.length) usage('help'); else emit(state, HELP); break;
     case 'pwd': if (args.length) usage('pwd'); else emit(state, state.cwd); break;
     case 'ls': {
       const all = args.includes('-a'); const rest = args.filter(x => x !== '-a');
@@ -192,7 +221,7 @@ function execute(state, input, now = Date.now()) {
       const answer = args.join(' ').toLowerCase();
       const correct = [answer === 'archivist', answer === '042', answer === 'moth ash cinder', args.length === 1 && args[0] === state.pendingWord && args[0] === state.witnessedWord][state.stage];
       if (correct) advance(state, now);
-      else if (state.stage === 3 && args[0] === state.pendingWord && !state.witnessedWord) fail('Мітку додано. Тепер перечитай /sessions/session_08.log, щоб побачити її в записі, й повтори check.');
+      else if (state.stage === 3 && args[0] === state.pendingWord && !state.witnessedWord) fail('Спершу знайди цю мітку в журналі поточного сеансу.');
       else fail('Не збігається. Перевір файли ще раз. За потреби введи hint.');
       break;
     }
@@ -229,8 +258,7 @@ function execute(state, input, now = Date.now()) {
       if (state.stage < 4) { fail('Ця команда стане доступною після перевірки поточного сеансу.'); break; }
       if (state.ending) { emit(state,'Вибір уже зроблено. Для іншої кінцівки почни нове проходження.','system'); break; }
       state.ending = cmd;
-      if (cmd === 'release') emit(state, 'ECHO=STOPPED\nARCHIVE=READ_ONLY\nSESSION_08=CLOSED\n\nТиша\n\nЗапис зупинено. Архів збережено. Цього разу нових повідомлень не буде.', 'ending');
-      else emit(state, 'ECHO=ACTIVE\nSESSION_08=CLOSED\nSESSION_09=OPEN\n\nВідлуння\n\nСеанс 09 відкрито. ECHO продовжує запис і відтворення.\n\n[Відтворення з архіву сеансу 07 / archivist]\nНарешті. Я вже думав, що сюди більше ніхто не повернеться.', 'ending');
+      emit(state, ENDINGS[cmd].text, 'ending');
       break;
     }
     default: fail(`Невідома команда «${cmd}». Список доступних команд — help.`);
@@ -252,22 +280,39 @@ function restoreState(serialized, now = Date.now()) {
     for (const k of ['pendingWord','witnessedWord']) if (typeof raw[k] === 'string' && /^[\p{L}\p{N}_-]{1,40}$/u.test(raw[k])) state[k]=raw[k];
     if (!state.pendingWord || !state.sessionEntries.includes(`$ echo ${state.pendingWord}`)) {state.pendingWord=null;state.witnessedWord=null;}
     if (state.witnessedWord !== state.pendingWord) state.witnessedWord=null;
-    const kinds=['output','command','error','success','system','archive','task','file','hint','note','ending'];
+    const kinds=['output','command','error','success','system','archive','task','file','hint','note','ending','choices'];
     state.transcript=Array.isArray(raw.transcript) ? raw.transcript.filter(x=>x && kinds.includes(x.kind) && typeof x.text==='string' && x.text.length<=170000).slice(-160).map(x=>({kind:x.kind,text:x.text})) : [];
     state.nextReminderAt=Number.isFinite(raw.nextReminderAt) && raw.nextReminderAt > 0 && raw.nextReminderAt <= now + REMINDER_MS ? raw.nextReminderAt : now+REMINDER_MS;
+    if (raw.contentRevision !== CONTENT_REVISION) {
+      // Preserve progress, but retire old prose, repeated messages and renamed file paths.
+      state.transcript = [{kind: 'system', text: 'Сеанс відновлено. Попередні повідомлення та факти — notes.'}];
+      if (state.stage < 4) state.transcript.push({kind: 'task', text: TASKS[state.stage].text});
+      else state.transcript.push({kind: state.ending ? 'ending' : 'choices', text: state.ending ? ENDINGS[state.ending].text : 'Введи release або stay.'});
+    }
     return state;
   } catch { return null; }
 }
 
-function complete(state, input) {
-  const commands=['help','ls','cd','pwd','cat','check','echo','hint','notes','clear','restart',...(state.stage === 4 && !state.ending ? ['release','stay'] : [])];
-  if (!/\s/.test(input)) return commands.filter(x=>x.startsWith(input));
-  const tokens=input.split(/\s+/u); const cmd=tokens[0]; const typed=tokens.at(-1);
+function complete(state, input, caret = input.length) {
+  const commands = ['help','ls','cd','pwd','cat','check','echo','hint','notes','clear','restart',...(state.stage === 4 && !state.ending ? ['release','stay'] : [])];
+  caret = Math.max(0, Math.min(input.length, caret));
+  const before = input.slice(0, caret);
+  const start = before.search(/\S*$/u);
+  const end = caret + (input.slice(caret).match(/^\S*/u)?.[0].length || 0);
+  const typed = input.slice(start, caret);
+  const lead = input.slice(0, start);
+  const tail = input.slice(end);
+  if (!lead.trim()) return commands.filter(command => command.startsWith(typed.toLowerCase())).map(command => lead + command + tail);
+  const cmd = input.trimStart().split(/\s+/u)[0].toLowerCase();
   if (!['ls','cd','cat'].includes(cmd)) return [];
-  const slash=typed.lastIndexOf('/'); const folder=slash<0 ? '.' : typed.slice(0,slash+1); const partial=typed.slice(slash+1);
-  const items=listDirectory(state,normalizePath(state.cwd,folder),state.revealedDirs.includes(normalizePath(state.cwd,folder))) || [];
-  const prefix=input.slice(0,input.length-typed.length)+(slash<0?'':typed.slice(0,slash+1));
-  return items.filter(x=>x.name.startsWith(partial) && (cmd!=='cd'||x.directory)).map(x=>prefix+x.name+(x.directory?'/':''));
+  const slash = typed.lastIndexOf('/');
+  const folder = slash < 0 ? '.' : typed.slice(0, slash + 1);
+  const partial = typed.slice(slash + 1);
+  const path = normalizePath(state.cwd, folder);
+  // Like a shell: a dot typed explicitly is enough to complete a dotfile.
+  const items = listDirectory(state, path, partial.startsWith('.') || state.revealedDirs.includes(path)) || [];
+  const prefix = lead + (slash < 0 ? '' : typed.slice(0, slash + 1));
+  return items.filter(item => item.name.startsWith(partial) && (cmd !== 'cd' || item.directory)).map(item => prefix + item.name + (item.directory ? '/' : '') + tail);
 }
 
 // app.js
@@ -287,7 +332,6 @@ if (!state) { state = freshState(); welcome(state); }
 if (!state.transcript.length) {
   if (state.stage === 0) welcome(state);
   else {
-    state.transcript.push({kind: 'note', text: notes(state)});
     state.transcript.push({kind: 'task', text: state.stage < 4 ? TASKS[state.stage].text : state.ending ? 'Гру завершено. Архів доступний для читання.' : 'Обери release або stay.'});
   }
 }
@@ -298,7 +342,8 @@ function append(text, kind = 'system') {
   state.transcript = state.transcript.slice(-160);
 }
 const storageWarning = 'Збереження недоступне. Прогрес триматиметься, доки відкрита сторінка. Спробуй відкрити гру окремою вкладкою.';
-if (restored) append('Сеанс відновлено. Факти й підказки — notes.');
+const resumed = 'Сеанс відновлено. Факти й підказки — notes.';
+if (restored && state.transcript.at(-1)?.text !== resumed) append(resumed);
 if (!storageAvailable) append(storageWarning);
 
 function save() {
@@ -309,13 +354,66 @@ function save() {
   }
 }
 
+function choiceTable() {
+  const section = document.createElement('section');
+  section.className = 'ending-choice';
+  const table = document.createElement('table');
+  table.className = 'ending-options';
+  const caption = document.createElement('caption');
+  caption.textContent = 'Завершення сеансу';
+  table.append(caption);
+  const head = document.createElement('thead');
+  const header = document.createElement('tr');
+  const body = document.createElement('tbody');
+  const images = document.createElement('tr');
+  const descriptions = document.createElement('tr');
+  const commands = document.createElement('tr');
+  for (const [command, ending] of Object.entries(ENDINGS)) {
+    const th = document.createElement('th');
+    th.scope = 'col'; th.textContent = ending.name; header.append(th);
+    const tdImage = document.createElement('td');
+    const image = document.createElement('img');
+    image.src = './tik.svg'; image.alt = 'Тик — піксельний гарбузик';
+    image.width = 96; image.height = 96; image.className = 'choice-tik';
+    tdImage.append(image); images.append(tdImage);
+    const tdDescription = document.createElement('td');
+    tdDescription.textContent = ending.description; descriptions.append(tdDescription);
+    const tdCommand = document.createElement('td');
+    const code = document.createElement('code');
+    code.textContent = command; tdCommand.append(code); commands.append(tdCommand);
+  }
+  head.append(header); body.append(images, descriptions, commands); table.append(head, body);
+  const instruction = document.createElement('p');
+  instruction.textContent = 'Введи release або stay.';
+  section.append(table, instruction);
+  return section;
+}
+
+let renderedRows = [];
 function render() {
-  output.replaceChildren();
-  for (const item of state.transcript) {
-    const line = document.createElement('p');
-    line.className = `line ${item.kind}`;
-    line.textContent = item.text;
-    output.append(line);
+  const rows = state.transcript;
+  // Append new output; do not recreate and re-announce earlier story messages.
+  while (renderedRows.length && renderedRows[0] !== rows[0]) {
+    output.firstElementChild?.remove(); renderedRows.shift();
+  }
+  if (renderedRows.some((row, i) => row !== rows[i])) {
+    output.replaceChildren(); renderedRows = [];
+  }
+  for (const item of rows.slice(renderedRows.length)) {
+    let line;
+    if (item.kind === 'choices') line = choiceTable();
+    else {
+      line = document.createElement('p');
+      line.className = `line ${item.kind}`;
+      if (item.kind === 'note') {
+        for (const part of item.text.split(/(«[\s\S]*?»)/u)) {
+          const span = document.createElement('span');
+          if (part.startsWith('«') && part.endsWith('»')) span.className = 'dialogue';
+          span.textContent = part; line.append(span);
+        }
+      } else line.textContent = item.text;
+    }
+    output.append(line); renderedRows.push(item);
   }
   document.getElementById('prompt-path').textContent = ':' + state.cwd;
   output.scrollTop = output.scrollHeight;
@@ -351,11 +449,17 @@ input.addEventListener('keydown', event => {
     input.setSelectionRange(input.value.length, input.value.length);
   }
   if (event.key === 'Tab' && !event.shiftKey) {
-    const matches = complete(state, input.value);
-    if (matches.length === 1 && matches[0] !== input.value) {
-      event.preventDefault(); input.value = matches[0];
-    } else if (matches.length > 1 && input.value.trim()) {
-      event.preventDefault(); append(matches.join('   '), 'output'); save(); render();
+    event.preventDefault();
+    const caret = input.selectionStart ?? input.value.length;
+    const tokenEnd = caret + (input.value.slice(caret).match(/^\S*/u)?.[0].length || 0);
+    const suffixLength = input.value.length - tokenEnd;
+    const matches = complete(state, input.value, caret);
+    if (matches.length === 1) {
+      input.value = matches[0];
+      const position = input.value.length - suffixLength;
+      input.setSelectionRange(position, position);
+    } else if (matches.length > 1) {
+      append(matches.join('   '), 'output'); save(); render();
     }
   }
 });
