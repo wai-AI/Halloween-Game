@@ -84,8 +84,8 @@ test('exactly two hints per puzzle, retained on advancement',()=>{
   run(s,'echo x','cat sessions/session_08.log','check x','hint');assert.equal(s.stage,4);assert.match(last(s),/Усі загадки/);
 });
 
-test('Tik reminders repeat at five minutes, stop after hint, reset per puzzle',()=>{
-  const s=start();assert.equal(reminderDue(s,1000+REMINDER_MS-1),false);assert.equal(reminderDue(s,1000+REMINDER_MS),true);
+test('Tik reminders repeat at three minutes, stop after hint, reset per puzzle',()=>{
+  assert.equal(REMINDER_MS,180000);const s=start();assert.equal(reminderDue(s,1000+REMINDER_MS-1),false);assert.equal(reminderDue(s,1000+REMINDER_MS),true);
   acknowledgeReminder(s,1000+REMINDER_MS);assert.equal(reminderDue(s,1000+REMINDER_MS+1),false);assert.equal(reminderDue(s,1000+2*REMINDER_MS),true);
   run(s,'hint');assert.equal(reminderDue(s,999999999),false);
   execute(s,'check archivist',800000);assert.equal(reminderDue(s,800000+REMINDER_MS-1),false);assert.equal(reminderDue(s,800000+REMINDER_MS),true);
@@ -265,4 +265,13 @@ test('Tik fortunes come from a fixed pool and do not immediately repeat',async()
   for(let i=0;i<100;i++){const previous=FORTUNES[i%FORTUNES.length];const next=pickFortune(previous,()=>i/100);assert.ok(FORTUNES.includes(next));assert.notEqual(next,previous);}
   assert.equal(pickFortune('',()=>0),FORTUNES[0]);assert.equal(pickFortune('',()=>0.999),FORTUNES.at(-1));
   assert.notEqual(ENDINGS.release.mascot,ENDINGS.stay.mascot);
+});
+
+
+test('five-minute reminder saves retain elapsed time when migrated to three minutes',()=>{
+  const s=start();delete s.reminderIntervalMs;s.nextReminderAt=301000;
+  const before=restoreState(JSON.stringify(s),180999);assert.equal(before.nextReminderAt,181000);assert.equal(reminderDue(before,180999),false);assert.equal(reminderDue(before,181000),true);
+  const overdue=restoreState(JSON.stringify(s),241000);assert.equal(reminderDue(overdue,241000),true);
+  acknowledgeReminder(overdue,241000);assert.equal(overdue.nextReminderAt,421000);
+  assert.deepEqual(restoreState(JSON.stringify(overdue),241000),overdue);
 });

@@ -241,6 +241,28 @@ function run(command) {
 }
 
 // Intercept input directly: sandboxed iframes need no form submission permission.
+const app = document.getElementById('app');
+const interactive = 'button, a, input, textarea, select, [contenteditable]:not([contenteditable="false"])';
+app.addEventListener('click', event => {
+  if (!completion.hidden || event.target.closest(interactive) || !window.getSelection()?.isCollapsed) return;
+  input.focus({preventScroll: true});
+});
+// Keyboard users can start typing while the transcript has focus, too.
+// Leave shortcuts, selection/copy, scrolling and controls to the browser.
+app.addEventListener('keydown', event => {
+  if (!completion.hidden || event.defaultPrevented || event.isComposing || event.ctrlKey || event.metaKey || event.altKey || event.target.closest(interactive)) return;
+  if (event.key === 'Enter') {
+    event.preventDefault(); input.focus({preventScroll: true}); run(input.value);
+  } else if (event.key.length === 1) {
+    event.preventDefault(); input.focus({preventScroll: true});
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? start;
+    if (input.value.length - (end - start) + event.key.length <= input.maxLength) {
+      input.setRangeText(event.key, start, end, 'end');
+      input.dispatchEvent(new Event('input', {bubbles: true}));
+    }
+  }
+});
 document.getElementById('command-form').addEventListener('submit', event => { event.preventDefault(); run(input.value); });
 document.getElementById('send').addEventListener('click', () => run(input.value));
 input.addEventListener('keydown', event => {

@@ -1,7 +1,7 @@
 import { TASKS, FACTS, filesFor, directoriesFor, ARCHIVIST_FINAL, ARCHIVE_MESSAGES, archivedMessages, quoteMessage, ENDINGS } from './story.js';
 
 export const SAVE_KEY = 'dou.haunted-terminal.session07.v1';
-export const REMINDER_MS = 5 * 60 * 1000;
+export const REMINDER_MS = 3 * 60 * 1000;
 export const VERSION = 1;
 export const CONTENT_REVISION = 3;
 export const HELP = [
@@ -22,7 +22,7 @@ export const HELP = [
 
 
 export function freshState(now = Date.now()) {
-  return { version: VERSION, contentRevision: CONTENT_REVISION, stage: 0, ending: null, restartPending: false, cwd: '/', hints: [0, 0, 0, 0], nextReminderAt: now + REMINDER_MS,
+  return { version: VERSION, contentRevision: CONTENT_REVISION, reminderIntervalMs: REMINDER_MS, stage: 0, ending: null, restartPending: false, cwd: '/', hints: [0, 0, 0, 0], nextReminderAt: now + REMINDER_MS,
     pendingWord: null, witnessedWord: null, sessionEntries: [], history: [], transcript: [], readPaths: [], revealedDirs: [] };
 }
 
@@ -208,7 +208,10 @@ export function restoreState(serialized, now = Date.now()) {
     if (state.witnessedWord !== state.pendingWord) state.witnessedWord=null;
     const kinds=['output','command','error','success','system','archive','task','file','hint','note','ending','choices'];
     state.transcript=Array.isArray(raw.transcript) ? raw.transcript.filter(x=>x && kinds.includes(x.kind) && typeof x.text==='string' && x.text.length<=170000).slice(-160).map(x=>({kind:x.kind,text:x.text})) : [];
-    state.nextReminderAt=Number.isFinite(raw.nextReminderAt) && raw.nextReminderAt > 0 && raw.nextReminderAt <= now + REMINDER_MS ? raw.nextReminderAt : now+REMINDER_MS;
+    // Old saves used five minutes. Keep the elapsed time when shortening the interval.
+    const previousInterval = raw.reminderIntervalMs === undefined || raw.reminderIntervalMs === 300000 ? 300000 : REMINDER_MS;
+    const deadline = raw.nextReminderAt - previousInterval + REMINDER_MS;
+    state.nextReminderAt=Number.isFinite(raw.nextReminderAt) && deadline > 0 && deadline <= now + REMINDER_MS ? deadline : now+REMINDER_MS;
     if (raw.contentRevision !== CONTENT_REVISION) {
       // Preserve progress, but retire old prose, repeated messages and renamed file paths.
       state.transcript = [{kind: 'system', text: 'Сеанс відновлено. Попередні повідомлення та факти — notes.'}];
