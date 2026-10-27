@@ -9,11 +9,14 @@ const fortune = document.getElementById('fortune');
 const completion = document.getElementById('completion');
 const typingToggle = document.getElementById('typing-toggle');
 const skipTyping = document.getElementById('skip-typing');
+const commandGuide = document.getElementById('command-guide');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const TYPING_KEY = 'dou.haunted-terminal.typing';
+const GUIDE_KEY = 'dou.haunted-terminal.commands';
 let state, storageAvailable = true, restored = false, historyIndex = 0, draft = '';
 let typingEnabled = true, reviewTerminal = false, shownEnding = null, lastFortune = '';
 try { typingEnabled = localStorage.getItem(TYPING_KEY) !== 'off'; } catch { /* Optional preference. */ }
+try { commandGuide.open = localStorage.getItem(GUIDE_KEY) !== 'closed'; } catch { /* Open by default. */ }
 
 try {
   const saved = localStorage.getItem(SAVE_KEY);
@@ -183,7 +186,14 @@ function render(animate = false) {
     else {
       line = document.createElement('p');
       line.className = `line ${item.kind}`;
-      if (item.kind === 'note') {
+      if (item.kind === 'command') {
+        const match = item.text.match(/^(guest@echo:[^\n]*?\$)([\s\S]*)$/u);
+        if (match) {
+          const prefix = document.createElement('span');
+          prefix.className = 'command-prompt'; prefix.textContent = match[1];
+          line.append(prefix, document.createTextNode(match[2]));
+        } else line.textContent = item.text;
+      } else if (item.kind === 'note') {
         for (const part of item.text.split(/(«[\s\S]*?»)/u)) {
           const span = document.createElement('span');
           if (part.startsWith('«') && part.endsWith('»')) span.className = 'dialogue';
@@ -242,7 +252,20 @@ function run(command) {
 
 // Intercept input directly: sandboxed iframes need no form submission permission.
 const app = document.getElementById('app');
-const interactive = 'button, a, input, textarea, select, [contenteditable]:not([contenteditable="false"])';
+const interactive = 'button, a, input, textarea, select, summary, #command-guide, [contenteditable]:not([contenteditable="false"])';
+function positionTerminalOverlays() {
+  if (!completion.hidden) return;
+  const area = app.getBoundingClientRect(), terminal = output.getBoundingClientRect();
+  const bottom = Math.max(0, area.bottom - terminal.bottom) + 8;
+  const right = Math.max(0, area.right - terminal.right);
+  tik.style.bottom = bottom + 'px'; tik.style.right = right + 'px';
+  skipTyping.style.bottom = bottom + 'px'; skipTyping.style.right = (right + 8) + 'px';
+}
+commandGuide.addEventListener('toggle', () => {
+  try { localStorage.setItem(GUIDE_KEY, commandGuide.open ? 'open' : 'closed'); } catch { /* Optional preference. */ }
+  positionTerminalOverlays(); placeFortune();
+});
+new ResizeObserver(positionTerminalOverlays).observe(output);
 app.addEventListener('click', event => {
   if (!completion.hidden || event.target.closest(interactive) || !window.getSelection()?.isCollapsed) return;
   input.focus({preventScroll: true});

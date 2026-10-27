@@ -3,8 +3,8 @@ import { TASKS, FACTS, filesFor, directoriesFor, ARCHIVIST_FINAL, ARCHIVE_MESSAG
 export const SAVE_KEY = 'dou.haunted-terminal.session07.v1';
 export const REMINDER_MS = 3 * 60 * 1000;
 export const VERSION = 1;
-export const CONTENT_REVISION = 3;
-const SESSION_INTRO = 'Гостьовий сеанс відкрито. Щоб побачити всі доступні команди, введіть help. Введіть notes, аби переглянути записи сеансу: встановлені факти, архівні повідомлення та відкриті підказки.';
+export const CONTENT_REVISION = 4;
+const SESSION_INTRO = 'Гостьовий сеанс відкрито. Відповіді заховані у файлах цього термінала.\n\nls — показати файли й папки. Наприклад: ls /sessions\nls -a — показати також приховані файли. Наприклад: ls -a /registry\ncat — прочитати файл. Наприклад: cat /sessions/session_07.log\ncheck — перевірити знайдену відповідь.\n\nТекст у <…> замінюй своїм значенням, самі дужки не вводь.\nШпаргалка «Команди» залишається перед очима, її можна згорнути. Повний список — help. Поточна загадка, факти й відкриті підказки — notes.';
 export const HELP = [
   ['help', 'список команд'],
   ['ls [шлях]', 'вміст папки'],
@@ -15,11 +15,11 @@ export const HELP = [
   ['check <відповідь>', 'перевірити відповідь'],
   ['echo <слово>', 'вивести слово'],
   ['hint', 'підказка (дві на загадку)'],
-  ['notes', 'факти, повідомлення й відкриті підказки'],
+  ['notes', 'поточна загадка, факти й підказки'],
   ['pumpkin', 'Тик і передбачення на день'],
   ['clear', 'очистити екран'],
   ['restart', 'почати заново']
-].map(([command, description]) => command.padEnd(22) + description).join('\n') + '\n\n↑ / ↓ — історія команд. Tab — доповнити команду або шлях.';
+].map(([command, description]) => command.padEnd(22) + description).join('\n') + '\n\nЯк почати: ls /sessions → cat /sessions/session_07.log\nПапки переглядай через ls, файли читай через cat. ls -a показує також приховані файли.\nТекст у <…> замінюй своїм значенням без дужок; [шлях] означає необов’язковий шлях.\n↑ / ↓ — історія команд. Tab — доповнити команду або шлях.';
 
 
 export function freshState(now = Date.now()) {
@@ -58,6 +58,7 @@ export function welcome(state) {
 
 export function notes(state) {
   const sections = [state.stage ? 'Встановлено:\n' + FACTS.slice(0, state.stage).map((fact, i) => `${i + 1}. ${fact}`).join('\n\n') : 'Поки що фактів немає. Почни з журналу сеансу 07.'];
+  if (state.stage < 4) sections.unshift('Поточна загадка:\n' + TASKS[state.stage].text);
   const hints = [];
   state.hints.forEach((used, stage) => {
     if (stage > state.stage) return;
@@ -105,7 +106,14 @@ export function execute(state, input, now = Date.now()) {
     if (state.sessionEntries.length > 256) state.sessionEntries.shift();
   }
   const fail = text => emit(state, text, 'error');
-  const usage = text => fail(`Формат: ${text}`);
+  const usage = text => {
+    const example = text.startsWith('cat ') ? '\nПісля cat вкажи шлях до одного файлу. Наприклад: cat /sessions/session_07.log' : text.startsWith('ls ') ? '\nНаприклад: ls /sessions або ls -a /registry' : text.startsWith('cd ') ? '\nНаприклад: cd /sessions. Повернутися на рівень вище: cd ..' : text.startsWith('check ') ? '\nПідстав знайдену відповідь замість <…>, без дужок.' : '';
+    fail(`Формат: ${text}${example}`);
+  };
+  const folderFor = path => {
+    const parent = path.slice(0, path.lastIndexOf('/')) || '/';
+    return directoriesFor(state).includes(parent) ? parent : '/';
+  };
   let action = null;
   if (restartPending && args.length === 0 && cmd === 'y') {
     const next = freshState(now); welcome(next); return {state: next, action: 'restarted'};
@@ -121,21 +129,22 @@ export function execute(state, input, now = Date.now()) {
       if (rest.length > 1 || rest.some(x => x.startsWith('-'))) { usage('ls [-a] [шлях]'); break; }
       const path = normalizePath(state.cwd, rest[0] || '.');
       const items = listDirectory(state, path, all);
-      if (!items) { fail('Такої папки немає або її ще не відкрито.'); break; }
+      if (!items) { fail(path in filesFor(state) ? `«${path}» — це файл. Прочитай його: cat ${path}` : `Папку «${path}» не знайдено або ще не відкрито. Доступні папки: ls /`); break; }
       if (all && !state.revealedDirs.includes(path)) state.revealedDirs.push(path);
-      emit(state, items.length ? items.map(x => x.name + (x.directory ? '/' : '')).join('\n') : 'Папка порожня. Приховані файли можна побачити через ls -a.');
+      emit(state, items.length ? items.map(x => x.name + (x.directory ? '/' : '')).join('\n') : all ? 'Папка порожня.' : `Звичайних файлів не видно. Перевір також приховані: ls -a ${path}`);
       break;
     }
     case 'cd': {
       if (args.length > 1) { usage('cd <шлях>'); break; }
       const path = normalizePath(state.cwd, args[0] || '/');
-      if (!directoriesFor(state).includes(path)) fail('Такої папки немає або її ще не відкрито.');
+      if (!directoriesFor(state).includes(path)) fail(path in filesFor(state) ? `«${path}» — це файл. Прочитай його: cat ${path}` : `Папку «${path}» не знайдено або ще не відкрито. Доступні папки: ls /`);
       else { state.cwd = path; emit(state,path,'system'); } break;
     }
     case 'cat': {
       if (args.length !== 1) { usage('cat <файл>'); break; }
       const path = normalizePath(state.cwd, args[0]); const files = filesFor(state);
-      if (!(path in files)) { fail('Файл не знайдено або його ще не відкрито. Перевір шлях командою ls.'); break; }
+      if (directoriesFor(state).includes(path)) { fail(`«${path}» — це папка. Переглянь файли всередині: ls ${path}`); break; }
+      if (!(path in files)) { fail(`Файл «${path}» не знайдено або ще не відкрито. Перевір назву й шлях: ls ${folderFor(path)}`); break; }
       emit(state, path, 'file'); emit(state, files[path]);
       if (!state.readPaths.includes(path)) state.readPaths.push(path);
       if (path === '/sessions/session_08.log' && state.stage === 3 && state.pendingWord && state.sessionEntries.includes(`$ echo ${state.pendingWord}`)) state.witnessedWord = state.pendingWord;
@@ -143,6 +152,7 @@ export function execute(state, input, now = Date.now()) {
     }
     case 'check': {
       if (!args.length) { usage('check <відповідь>'); break; }
+      if (/[<>]/u.test(args.join(' '))) { usage('check <відповідь>'); break; }
       if (state.stage >= 4) { emit(state, 'Усі чотири загадки вже розв’язано.', 'system'); break; }
       const answer = args.join(' ').toLowerCase();
       const correct = [answer === 'archivist', answer === '042', answer === 'moth ash cinder', args.length === 1 && args[0] === state.pendingWord && args[0] === state.witnessedWord][state.stage];
@@ -212,14 +222,19 @@ export function restoreState(serialized, now = Date.now()) {
     // Old saves used five minutes. Keep the elapsed time when shortening the interval.
     const previousInterval = raw.reminderIntervalMs === undefined || raw.reminderIntervalMs === 300000 ? 300000 : REMINDER_MS;
     const deadline = raw.nextReminderAt - previousInterval + REMINDER_MS;
-    // Refresh the two changed text formats in existing saves without clearing the transcript.
-    state.transcript = state.transcript.map(row => {
-      if (row.text === 'Гостьовий сеанс відкрито. help — команди, notes — записи сеансу.') return {...row, text: SESSION_INTRO};
-      const task = row.kind === 'task' && TASKS.find(task => task.text.replace(/^Загадка \(\d\/4\): /u, '') === row.text);
-      return task ? {...row, text: task.text} : row;
-    });
+    if (raw.contentRevision === 3) {
+      state.transcript = state.transcript.map(row => {
+        if (row.kind === 'output' && row.text.startsWith('Гостьовий сеанс відкрито.')) return {...row, text: SESSION_INTRO};
+        const legacyStarts = ['Хто працював у сеансі 07?', 'Повідомлення підписані archivist.', 'У /archive/parts збереглися фрагменти.', 'Журнал сеансу 08 має дату 2019 року.'];
+        const number = row.kind === 'task' && (row.text.match(/^Загадка \(([1-4])\/4\):/u)?.[1] || (legacyStarts.findIndex(text => row.text.startsWith(text)) + 1));
+        if (number) return {...row, text: TASKS[Number(number) - 1].text};
+        if (row.kind === 'output' && row.text.startsWith('help                  список команд\n')) return {...row, text: HELP};
+        return row.kind === 'note' ? {...row, text: notes(state)} : row;
+      });
+      if (state.stage < 4 && !state.transcript.some(row => row.kind === 'task' && row.text === TASKS[state.stage].text)) state.transcript.push({kind: 'task', text: TASKS[state.stage].text});
+    }
     state.nextReminderAt=Number.isFinite(raw.nextReminderAt) && deadline > 0 && deadline <= now + REMINDER_MS ? deadline : now+REMINDER_MS;
-    if (raw.contentRevision !== CONTENT_REVISION) {
+    if (raw.contentRevision !== CONTENT_REVISION && raw.contentRevision !== 3) {
       // Preserve progress, but retire old prose, repeated messages and renamed file paths.
       state.transcript = [{kind: 'system', text: 'Сеанс відновлено. Попередні повідомлення та факти — notes.'}];
       if (state.stage < 4) state.transcript.push({kind: 'task', text: TASKS[state.stage].text});

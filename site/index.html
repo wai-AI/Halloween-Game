@@ -7,14 +7,37 @@
   <meta name="description" content="Haunted Terminal: Session 07 — геловінська гра DOU у терміналі.">
   <title>Haunted Terminal: Session 07 — DOU</title>
   <link rel="icon" href="./tik.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=3">
-  <script defer src="./game.js?v=5"></script>
+  <link rel="stylesheet" href="./style.css?v=6">
+  <script defer src="./game.js?v=6"></script>
 </head>
 <body>
   <a class="skip" href="#command">До командного рядка</a>
   <main id="app" aria-label="Haunted Terminal: Session 07">
     <h1 class="sr-only">Haunted Terminal: Session 07</h1>
-    <div id="output" role="region" aria-label="Вивід термінала" tabindex="0"></div>
+    <div id="terminal-workspace">
+      <div id="output" role="region" aria-label="Вивід термінала" tabindex="0"></div>
+      <details id="command-guide" open>
+        <summary>Команди</summary>
+        <div class="guide-body">
+          <dl>
+            <dt><code>ls [шлях]</code></dt><dd>файли й папки</dd>
+            <dt><code>ls -a [шлях]</code></dt><dd>також приховані</dd>
+            <dt><code>cat &lt;шлях&gt;</code></dt><dd>прочитати файл</dd>
+            <dt><code>cd &lt;шлях&gt;</code></dt><dd>перейти в папку</dd>
+            <dt><code>cd ..</code></dt><dd>на рівень вище</dd>
+            <dt><code>echo &lt;слово&gt;</code></dt><dd>вивести слово</dd>
+            <dt><code>check &lt;відповідь&gt;</code></dt><dd>перевірити відповідь</dd>
+            <dt><code>notes</code></dt><dd>загадка й записи</dd>
+            <dt><code>hint</code></dt><dd>підказка до загадки</dd>
+            <dt><code>help</code></dt><dd>усі команди</dd>
+          </dl>
+          <p>Приклад:<br><code>ls /sessions</code><br><code>cat /sessions/session_07.log</code></p>
+          <p>Текст у <code>&lt;…&gt;</code> замінюй своїм значенням без дужок. <code>[шлях]</code> — необов’язковий.</p>
+          <p>Шлях, що починається з <code>/</code>, працює з будь-якої папки. Решта — від поточної.</p>
+          <p>Tab — доповнити команду або шлях.<br>↑ / ↓ — історія команд.</p>
+        </div>
+      </details>
+    </div>
     <div class="terminal-tools">
       <button type="button" id="back-to-ending" hidden>До підсумку гри</button>
       <button type="button" id="typing-toggle" aria-pressed="true">Друк: увімкнено</button>

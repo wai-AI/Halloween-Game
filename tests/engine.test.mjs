@@ -196,7 +196,7 @@ test('ordinary files contain log records without narrator explanations or replay
 });
 
 test('fourth puzzle and service config do not reveal the solution sequence',()=>{
-  const s=toFourth(start());assert.ok(!TASKS[3].text.includes('echo '));assert.ok(!TASKS[3].text.includes('cat '));assert.ok(!TASKS[3].text.includes('<слово>'));
+  const s=toFourth(start());assert.ok(!TASKS[3].text.includes('echo '));assert.ok(TASKS[3].text.includes('/archive/echo.txt'));assert.ok(!TASKS[3].text.includes('<слово>'));
   assert.ok(!filesFor(s)['/archive/echo.txt'].includes('echo <'));
   assert.ok(!filesFor(s)['/archive/echo.txt'].includes('check <'));
   assert.ok(!TASKS[3].hints[0].includes('echo '));assert.ok(TASKS[3].hints[1].includes('echo '));
@@ -274,4 +274,55 @@ test('five-minute reminder saves retain elapsed time when migrated to three minu
   const overdue=restoreState(JSON.stringify(s),241000);assert.equal(reminderDue(overdue,241000),true);
   acknowledgeReminder(overdue,241000);assert.equal(overdue.nextReminderAt,421000);
   assert.deepEqual(restoreState(JSON.stringify(overdue),241000),overdue);
+});
+
+
+test('notes restores the current task after clear without consuming hints or exposing future tasks',()=>{
+  const s=start();
+  for(const command of ['check archivist','check 042','check moth ash cinder']){
+    run(s,command,'clear','notes');assert.ok(last(s).includes(TASKS[s.stage].text));
+    for(const future of TASKS.slice(s.stage+1))assert.ok(!last(s).includes(future.text));
+    assert.deepEqual(s.hints,[0,0,0,0]);
+  }
+});
+
+test('file and directory mixups explain an actionable correction',()=>{
+  const s=start();
+  run(s,'cat /sessions');assert.match(last(s),/це папка/);assert.match(last(s),/ls \/sessions/);
+  for(const command of ['cd /sessions/session_07.log','ls /sessions/session_07.log']){run(s,command);assert.match(last(s),/це файл/);assert.match(last(s),/cat \/sessions\/session_07.log/);}
+  run(s,'cat');assert.match(last(s),/Наприклад: cat \/sessions\/session_07.log/);
+  run(s,'ls /registry');assert.match(last(s),/ls -a \/registry/);
+  run(s,'ls -a /registry','cat /registry/missing');assert.match(last(s),/ls \/registry/);
+  assert.equal(s.stage,0);assert.deepEqual(s.hints,[0,0,0,0]);
+});
+
+test('navigation errors do not expose locked files or later directories',()=>{
+  const s=start();
+  for(const command of ['cat /logs','ls /logs/auth.log','cd /archive/echo.txt']){run(s,command);assert.ok(!last(s).includes('це папка'));assert.ok(!last(s).includes('це файл'));assert.match(last(s),/ls \/$/);}
+  assert.equal(s.cwd,'/');assert.deepEqual(s.readPaths,[]);
+});
+
+test('literal angle brackets explain substitution without treating it as a puzzle hint',()=>{
+  const s=start();run(s,'check <логін>');assert.match(last(s),/без дужок/);assert.equal(s.stage,0);assert.equal(s.hints[0],0);
+});
+
+test('revision 3 transcripts receive navigation guidance while preserving progress and messages',()=>{
+  for(const stage of [0,1,2,3,4]){
+    const s=start();for(const cmd of ['check archivist','check 042','check moth ash cinder'].slice(0,Math.min(stage,3)))run(s,cmd);
+    if(stage===4)run(s,'echo x','cat /sessions/session_08.log','check x','stay');
+    s.contentRevision=3;
+    s.transcript=s.transcript.map(row=>row.kind==='task'?{...row,text:row.text.split('\n')[0]}:row);
+    const before=structuredClone(s);const restored=restoreState(JSON.stringify(s),1000);
+    assert.equal(restored.stage,stage);assert.equal(restored.ending,before.ending);assert.deepEqual(restored.hints,before.hints);
+    assert.deepEqual(restored.sessionEntries,before.sessionEntries);assert.equal(restored.pendingWord,before.pendingWord);assert.equal(restored.witnessedWord,before.witnessedWord);
+    assert.deepEqual(restored.transcript.filter(row=>row.kind==='archive'),before.transcript.filter(row=>row.kind==='archive'));
+    if(stage<4)assert.ok(restored.transcript.some(row=>row.kind==='task'&&row.text===TASKS[stage].text));
+    assert.deepEqual(restoreState(JSON.stringify(restored),1000),restored);
+  }
+});
+
+
+test('unnumbered revision 3 tasks are upgraded without duplicating the active task',()=>{
+  const s=start();s.contentRevision=3;s.transcript=[{kind:'task',text:'Хто працював у сеансі 07? Знайди його логін і введи check <логін>.'}];
+  const restored=restoreState(JSON.stringify(s),1000);assert.deepEqual(restored.transcript,[{kind:'task',text:TASKS[0].text}]);
 });
