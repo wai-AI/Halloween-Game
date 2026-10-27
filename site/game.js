@@ -614,7 +614,7 @@ function run(command) {
 
 // Intercept input directly: sandboxed iframes need no form submission permission.
 const app = document.getElementById('app');
-const interactive = 'button, a, input, textarea, select, summary, #command-guide, [contenteditable]:not([contenteditable="false"])';
+const interactive = 'button, a, input, textarea, select, summary, [contenteditable]:not([contenteditable="false"])';
 function positionTerminalOverlays() {
   if (!completion.hidden) return;
   const area = app.getBoundingClientRect(), terminal = output.getBoundingClientRect();
