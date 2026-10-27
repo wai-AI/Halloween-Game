@@ -372,7 +372,7 @@ function append(text, kind = 'system') {
 }
 const storageWarning = 'Збереження недоступне. Прогрес триматиметься, доки відкрита сторінка. Спробуй відкрити гру окремою вкладкою.';
 const resumed = 'Сеанс відновлено. Факти й підказки — notes.';
-if (restored && state.transcript.at(-1)?.text !== resumed) append(resumed);
+if (restored && !state.transcript.slice(-2).some(row => row.kind === 'system' && row.text.startsWith('Сеанс відновлено.'))) append(resumed);
 if (!storageAvailable) append(storageWarning);
 
 function save() {
