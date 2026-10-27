@@ -3,19 +3,19 @@
 'use strict';
 // story.js
 const TASKS = [
-  { title: 'Знайди оператора', short: 'Оператор', text: 'Хто працював у сеансі 07? Знайди його логін і введи check <логін>.', hints: [
+  { title: 'Знайди оператора', short: 'Оператор', text: 'Загадка (1/4): Хто працював у сеансі 07? Знайди його логін і введи check <логін>.', hints: [
     'У sessions/session_07.log є ID оператора. Пошукай відповідний обліковий запис у registry/. Команда ls -a показує приховані файли.',
     'Введи cat registry/.accounts.csv. Знайди рядок з ID 014. Перевір логін командою check archivist.'
   ]},
-  { title: 'Знайди джерело повідомлень', short: 'Джерело', text: 'Повідомлення підписані archivist. Звідки вони насправді надходять? Зістав журнали в /logs і введи check <номер процесу>.', hints: [
+  { title: 'Знайди джерело повідомлень', short: 'Джерело', text: 'Загадка (2/4): Повідомлення підписані archivist. Звідки вони насправді надходять? Зістав журнали в /logs і введи check <номер процесу>.', hints: [
     'Підпис повідомлення ще не означає, що користувач увійшов у систему. Зістав relay tickets у messages.log та relay.log.',
     'R-117, R-118 і R-119 ведуть до source=proc:042. Введи check 042.'
   ]},
-  { title: 'Віднови архів', short: 'Архів', text: 'У /archive/parts збереглися фрагменти. Обери три для процесу 042 та розташуй за часом подій: check <назва> <назва> <назва>.', hints: [
+  { title: 'Віднови архів', short: 'Архів', text: 'Загадка (3/4): У /archive/parts збереглися фрагменти. Обери три для процесу 042 та розташуй за часом подій: check <назва> <назва> <назва>.', hints: [
     'Порівняй source та час у кожному фрагменті. Один із них належить іншому процесу.',
     'Потрібні moth (23:47:18), ash (23:54:02), cinder (23:58:23). static належить процесу 063. Введи check moth ash cinder.'
   ]},
-  { title: 'Перевір запис сеансу', short: 'Сеанс 08', text: 'Журнал сеансу 08 має дату 2019 року. Це старий запис чи він змінюється просто зараз? Знайди доказ і передай його командою check.', hints: [
+  { title: 'Перевір запис сеансу', short: 'Сеанс 08', text: 'Загадка (4/4): Журнал сеансу 08 має дату 2019 року. Це старий запис чи він змінюється просто зараз? Знайди доказ і передай його командою check.', hints: [
     'Годинник відновлено зі знімка, тому сама дата нічого не доводить. Спробуй залишити щось своє й перевір, чи це з’явиться в журналі. Список команд є в help.',
     'Обери власне слово. Наприклад: echo гарбуз → cat /sessions/session_08.log → check гарбуз.'
   ]}
@@ -99,6 +99,7 @@ const SAVE_KEY = 'dou.haunted-terminal.session07.v1';
 const REMINDER_MS = 3 * 60 * 1000;
 const VERSION = 1;
 const CONTENT_REVISION = 3;
+const SESSION_INTRO = 'Гостьовий сеанс відкрито. Щоб побачити всі доступні команди, введіть help. Введіть notes, аби переглянути записи сеансу: встановлені факти, архівні повідомлення та відкриті підказки.';
 const HELP = [
   ['help', 'список команд'],
   ['ls [шлях]', 'вміст папки'],
@@ -146,7 +147,7 @@ const emit = (state, text, kind = 'output') => {
 function welcome(state) {
   emit(state, 'Welcome to Ubuntu 22.04.5 LTS (GNU/Linux 5.15.0-119-generic x86_64)\n\n * Documentation:  help\n * Session notes:  notes\n\n System information as of Sat Oct 31 00:13:00 UTC 2026\n\n  System load:  0.00               Processes:       3\n  Usage of /:   12.4% of 19.5GB    Users logged in: 1\n  Memory usage: 7%                 Swap usage:      0%\n\nLast login: Thu Oct 31 23:47:18 2019 on pts/0', 'system');
   emit(state, quoteMessage(archivedMessages(state)[0]), 'archive');
-  emit(state, 'Гостьовий сеанс відкрито. help — команди, notes — записи сеансу.', 'output');
+  emit(state, SESSION_INTRO, 'output');
   emit(state, TASKS[0].text, 'task');
 }
 
@@ -306,6 +307,12 @@ function restoreState(serialized, now = Date.now()) {
     // Old saves used five minutes. Keep the elapsed time when shortening the interval.
     const previousInterval = raw.reminderIntervalMs === undefined || raw.reminderIntervalMs === 300000 ? 300000 : REMINDER_MS;
     const deadline = raw.nextReminderAt - previousInterval + REMINDER_MS;
+    // Refresh the two changed text formats in existing saves without clearing the transcript.
+    state.transcript = state.transcript.map(row => {
+      if (row.text === 'Гостьовий сеанс відкрито. help — команди, notes — записи сеансу.') return {...row, text: SESSION_INTRO};
+      const task = row.kind === 'task' && TASKS.find(task => task.text.replace(/^Загадка \(\d\/4\): /u, '') === row.text);
+      return task ? {...row, text: task.text} : row;
+    });
     state.nextReminderAt=Number.isFinite(raw.nextReminderAt) && deadline > 0 && deadline <= now + REMINDER_MS ? deadline : now+REMINDER_MS;
     if (raw.contentRevision !== CONTENT_REVISION) {
       // Preserve progress, but retire old prose, repeated messages and renamed file paths.
