@@ -3,23 +3,39 @@ import { TASKS, FACTS, filesFor, directoriesFor, ARCHIVIST_FINAL, ARCHIVE_MESSAG
 export const SAVE_KEY = 'dou.haunted-terminal.session07.v1';
 export const REMINDER_MS = 3 * 60 * 1000;
 export const VERSION = 1;
-export const CONTENT_REVISION = 4;
-const SESSION_INTRO = 'Гостьовий сеанс відкрито. Відповіді заховані у файлах цього термінала.\n\nls — показати файли й папки. Наприклад: ls /sessions\nls -a — показати також приховані файли. Наприклад: ls -a /registry\ncat — прочитати файл. Наприклад: cat /sessions/session_07.log\ncheck — перевірити знайдену відповідь.\n\nТекст у <…> замінюй своїм значенням, самі дужки не вводь.\nШпаргалка «Команди» залишається перед очима, її можна згорнути. Повний список — help. Поточна загадка, факти й відкриті підказки — notes.';
-export const HELP = [
-  ['help', 'список команд'],
-  ['ls [шлях]', 'вміст папки'],
-  ['ls -a [шлях]', 'також приховані файли'],
-  ['cd <шлях>', 'перейти в папку (cd .. — назад)'],
-  ['pwd', 'поточний шлях'],
-  ['cat <файл>', 'прочитати файл'],
-  ['check <відповідь>', 'перевірити відповідь'],
-  ['echo <слово>', 'вивести слово'],
-  ['hint', 'підказка (дві на загадку)'],
-  ['notes', 'поточна загадка, факти й підказки'],
-  ['pumpkin', 'Тик і передбачення на день'],
-  ['clear', 'очистити екран'],
-  ['restart', 'почати заново']
-].map(([command, description]) => command.padEnd(22) + description).join('\n') + '\n\nЯк почати: ls /sessions → cat /sessions/session_07.log\nПапки переглядай через ls, файли читай через cat. ls -a показує також приховані файли.\nТекст у <…> замінюй своїм значенням без дужок; [шлях] означає необов’язковий шлях.\n↑ / ↓ — історія команд. Tab — доповнити команду або шлях.';
+export const CONTENT_REVISION = 5;
+const SESSION_INTRO = `Гостьовий сеанс відкрито. Можеш переглядати файли цього термінала й шукати в них зачіпки, щоб з’ясувати, що сталося тієї ночі.
+
+Введи guide, щоб розібратися, як тут усе працює. Там є пояснення команд і приклади, з яких можна почати. Коротка шпаргалка «Команди» теж завжди під рукою — за потреби її можна згорнути.
+
+Якщо захочеш повернутися до поточної загадки або перечитати вже знайдене, введи notes.`;
+export const GUIDE = `Як грати
+
+Перед тобою старий термінал із файлами, папками й записами попередніх сеансів. У них є зачіпки до чотирьох загадок. Читай, порівнюй знайдене й перевіряй свої версії — так поступово дізнаєшся, що тут сталося.
+
+Почнімо з файлів. Введи ls, щоб побачити файли й папки там, де ти зараз перебуваєш. Можна одразу вказати потрібну папку: наприклад, ls /sessions покаже її вміст.
+
+Щоб прочитати файл, введи cat і шлях до нього. Спробуй cat /sessions/session_07.log — це журнал сеансу, з якого починається історія. Назви папок і файлів бери з результатів ls.
+
+Деякі записи приховані: їхні назви починаються з крапки, і звичайна команда ls їх не показує. Щоб побачити весь вміст папки, скористайся ls -a. Наприклад: ls -a /registry.
+
+Коли знайдеш відповідь на поточну загадку, введи check і свою відповідь через пробіл. Якщо в інструкції написано check <логін>, заміни <логін> на знайдений логін, без дужок. Неправильна відповідь не скидає прогрес — можна перевіряти різні версії.
+
+Поточна загадка й уже встановлені факти зберігаються в notes. Якщо застрягнеш, введи hint. До кожної загадки є дві підказки: перша підкаже напрямок, друга допоможе конкретніше.
+
+Ще кілька корисних команд
+
+cd /sessions — перейти в папку /sessions. Після цього можна писати коротше: cat session_07.log.
+cd .. — повернутися на одну папку вище.
+pwd — подивитися, у якій папці ти зараз.
+echo <слово> — вивести своє слово в терміналі.
+pumpkin — покликати Тика за приємним передбаченням.
+clear — очистити екран. Прогрес і записи в notes залишаться.
+restart — почати гру заново. Перед цим термінал попросить підтвердження.
+
+Шлях, який починається з /, можна використовувати з будь-якої папки. Решта шляхів відраховуються від тієї, у якій ти зараз перебуваєш. Позначення [шлях] у шпаргалці означає, що шлях можна не вказувати.
+
+Стрілки ↑ і ↓ повертають попередні команди, а Tab доповнює назву команди або шлях.`;
 
 
 export function freshState(now = Date.now()) {
@@ -50,7 +66,7 @@ const emit = (state, text, kind = 'output') => {
   while(size>250000 && state.transcript.length>1)size-=state.transcript.shift().text.length;
 };
 export function welcome(state) {
-  emit(state, 'Welcome to Ubuntu 22.04.5 LTS (GNU/Linux 5.15.0-119-generic x86_64)\n\n * Documentation:  help\n * Session notes:  notes\n\n System information as of Sat Oct 31 00:13:00 UTC 2026\n\n  System load:  0.00               Processes:       3\n  Usage of /:   12.4% of 19.5GB    Users logged in: 1\n  Memory usage: 7%                 Swap usage:      0%\n\nLast login: Thu Oct 31 23:47:18 2019 on pts/0', 'system');
+  emit(state, 'Welcome to Ubuntu 22.04.5 LTS (GNU/Linux 5.15.0-119-generic x86_64)\n\n * Documentation:  guide\n * Session notes:  notes\n\n System information as of Sat Oct 31 00:13:00 UTC 2026\n\n  System load:  0.00               Processes:       3\n  Usage of /:   12.4% of 19.5GB    Users logged in: 1\n  Memory usage: 7%                 Swap usage:      0%\n\nLast login: Thu Oct 31 23:47:18 2019 on pts/0', 'system');
   emit(state, quoteMessage(archivedMessages(state)[0]), 'archive');
   emit(state, SESSION_INTRO, 'output');
   emit(state, TASKS[0].text, 'task');
@@ -122,7 +138,7 @@ export function execute(state, input, now = Date.now()) {
     emit(state, 'Перезапуск скасовано.', 'system'); return {state, action: null};
   }
   switch (cmd) {
-    case 'help': if (args.length) usage('help'); else emit(state, HELP); break;
+    case 'guide': case 'help': if (args.length) usage(cmd); else emit(state, GUIDE); break;
     case 'pwd': if (args.length) usage('pwd'); else emit(state, state.cwd); break;
     case 'ls': {
       const all = args.includes('-a'); const rest = args.filter(x => x !== '-a');
@@ -198,7 +214,7 @@ export function execute(state, input, now = Date.now()) {
       emit(state, ENDINGS[cmd].text, 'ending');
       break;
     }
-    default: fail(`Невідома команда «${cmd}». Список доступних команд — help.`);
+    default: fail(`Невідома команда «${cmd}». Як грати й користуватися командами — guide.`);
   }
   return {state,action};
 }
@@ -222,19 +238,22 @@ export function restoreState(serialized, now = Date.now()) {
     // Old saves used five minutes. Keep the elapsed time when shortening the interval.
     const previousInterval = raw.reminderIntervalMs === undefined || raw.reminderIntervalMs === 300000 ? 300000 : REMINDER_MS;
     const deadline = raw.nextReminderAt - previousInterval + REMINDER_MS;
-    if (raw.contentRevision === 3) {
+    if (raw.contentRevision === 3 || raw.contentRevision === 4) {
       state.transcript = state.transcript.map(row => {
         if (row.kind === 'output' && row.text.startsWith('Гостьовий сеанс відкрито.')) return {...row, text: SESSION_INTRO};
         const legacyStarts = ['Хто працював у сеансі 07?', 'Повідомлення підписані archivist.', 'У /archive/parts збереглися фрагменти.', 'Журнал сеансу 08 має дату 2019 року.'];
         const number = row.kind === 'task' && (row.text.match(/^Загадка \(([1-4])\/4\):/u)?.[1] || (legacyStarts.findIndex(text => row.text.startsWith(text)) + 1));
         if (number) return {...row, text: TASKS[Number(number) - 1].text};
-        if (row.kind === 'output' && row.text.startsWith('help                  список команд\n')) return {...row, text: HELP};
+        if (row.kind === 'output' && row.text.startsWith('help                  список команд\n')) return {...row, text: GUIDE};
+        if (row.kind === 'system' && row.text.startsWith('Welcome to Ubuntu ')) return {...row, text: row.text.replace('Documentation:  help', 'Documentation:  guide')};
+        if (row.kind === 'error' && row.text.startsWith('Невідома команда «')) return {...row, text: row.text.replace('Список доступних команд — help.', 'Як грати й користуватися командами — guide.')};
+        if (row.kind === 'hint') return {...row, text: row.text.replace('Список команд є в help.', 'Пояснення команд є в guide.')};
         return row.kind === 'note' ? {...row, text: notes(state)} : row;
       });
       if (state.stage < 4 && !state.transcript.some(row => row.kind === 'task' && row.text === TASKS[state.stage].text)) state.transcript.push({kind: 'task', text: TASKS[state.stage].text});
     }
     state.nextReminderAt=Number.isFinite(raw.nextReminderAt) && deadline > 0 && deadline <= now + REMINDER_MS ? deadline : now+REMINDER_MS;
-    if (raw.contentRevision !== CONTENT_REVISION && raw.contentRevision !== 3) {
+    if (raw.contentRevision !== CONTENT_REVISION && raw.contentRevision !== 3 && raw.contentRevision !== 4) {
       // Preserve progress, but retire old prose, repeated messages and renamed file paths.
       state.transcript = [{kind: 'system', text: 'Сеанс відновлено. Попередні повідомлення та факти — notes.'}];
       if (state.stage < 4) state.transcript.push({kind: 'task', text: TASKS[state.stage].text});
@@ -245,7 +264,7 @@ export function restoreState(serialized, now = Date.now()) {
 }
 
 export function complete(state, input, caret = input.length) {
-  const commands = ['help','ls','cd','pwd','cat','check','echo','hint','notes','pumpkin','clear','restart',...(state.stage === 4 && !state.ending ? ['release','stay'] : [])];
+  const commands = ['guide','help','ls','cd','pwd','cat','check','echo','hint','notes','pumpkin','clear','restart',...(state.stage === 4 && !state.ending ? ['release','stay'] : [])];
   caret = Math.max(0, Math.min(input.length, caret));
   const before = input.slice(0, caret);
   const start = before.search(/\S*$/u);

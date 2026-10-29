@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {freshState,welcome,execute,restoreState,reminderDue,acknowledgeReminder,REMINDER_MS,listDirectory,normalizePath,complete,notes,HELP,CONTENT_REVISION} from '../site/engine.js';
+import {freshState,welcome,execute,restoreState,reminderDue,acknowledgeReminder,REMINDER_MS,listDirectory,normalizePath,complete,notes,GUIDE,CONTENT_REVISION} from '../site/engine.js';
 import {filesFor,TASKS,ARCHIVE_MESSAGES} from '../site/story.js';
 
 const start=()=>{const s=freshState(1000);welcome(s);return s;};
@@ -72,7 +72,7 @@ test('hidden file discovery, absolute/relative navigation, trailing slashes',()=
 });
 
 test('command arguments cannot accidentally trigger state changes',()=>{
-  const s=start();for(const cmd of ['ls -z','cd /registry /sessions','cat','cat a b','pwd x','hint x','help x','notes x','clear x','restart x']){run(s,cmd);assert.match(last(s),/Формат/);}
+  const s=start();for(const cmd of ['ls -z','cd /registry /sessions','cat','cat a b','pwd x','hint x','guide x','help x','notes x','clear x','restart x']){run(s,cmd);assert.match(last(s),/Формат/);}
   assert.equal(s.hints[0],0);assert.equal(s.stage,0);
   const final=solve(start());run(final,'stay now','release now');assert.equal(final.ending,null);
 });
@@ -174,10 +174,22 @@ test('another command or reload cancels pending restart confirmation',()=>{
 test('n cancels restart without losing progress',()=>{const s=solve(start());run(s,'restart','n');assert.equal(s.stage,4);assert.equal(s.restartPending,false);assert.match(last(s),/скасовано/);});
 
 
-test('help columns align and restart does not repeat its confirmation',()=>{
-  const lines=HELP.split('\n').slice(0,13);
-  for(const line of lines){const match=line.match(/^(.+?) {2,}(\S.*)$/u);assert.ok(match);assert.equal(line.indexOf(match[2]),22,line);}
-  assert.match(lines.at(-1),/почати заново$/);assert.ok(!lines.at(-1).includes('y/n'));
+test('guide and the legacy help alias show the same walkthrough without changing puzzle progress',()=>{
+  for(const s of [start(),toFourth(start()),solve(start())]){
+    const before={stage:s.stage,hints:[...s.hints],cwd:s.cwd,pending:s.pendingWord,witnessed:s.witnessedWord,deadline:s.nextReminderAt};
+    run(s,'guide');assert.equal(last(s),GUIDE);
+    run(s,'help');assert.equal(last(s),GUIDE);
+    run(s,'  GUIDE  ');assert.equal(last(s),GUIDE);
+    assert.deepEqual({stage:s.stage,hints:s.hints,cwd:s.cwd,pending:s.pendingWord,witnessed:s.witnessedWord,deadline:s.nextReminderAt},before);
+    assert.deepEqual(complete(s,'gui'),['guide']);
+    assert.deepEqual(complete(s,'he'),['help']);
+  }
+});
+
+test('unknown commands direct players to guide and invalid guide arguments do not run it',()=>{
+  const s=start();run(s,'unknown');assert.match(last(s),/— guide\.$/u);
+  for(const command of ['guide extra','help extra']){run(s,command);assert.match(last(s),/^Формат:/u);assert.notEqual(last(s),GUIDE);}
+  assert.equal(s.stage,0);assert.deepEqual(s.hints,[0,0,0,0]);
 });
 
 test('archive messages are quoted and normal commands do not replay them',()=>{
@@ -247,7 +259,7 @@ test('pumpkin is available throughout the game, validates arguments and keeps pu
     assert.deepEqual({stage:s.stage,hints:s.hints,pending:s.pendingWord,witnessed:s.witnessedWord,deadline:s.nextReminderAt},before);
     assert.equal(execute(s,'pumpkin extra',1000).action,null);assert.match(last(s),/Формат: pumpkin/);
     assert.deepEqual(complete(s,'pump'),['pumpkin']);
-    assert.ok(HELP.includes('pumpkin'));
+    assert.ok(GUIDE.includes('pumpkin'));
   }
   for(const ending of ['release','stay']){const s=solve(start());run(s,ending);const count=s.sessionEntries.length;assert.equal(execute(s,'pumpkin').action,'pumpkin');assert.equal(s.ending,ending);assert.equal(s.sessionEntries.length,count);}
 });
@@ -325,4 +337,29 @@ test('revision 3 transcripts receive navigation guidance while preserving progre
 test('unnumbered revision 3 tasks are upgraded without duplicating the active task',()=>{
   const s=start();s.contentRevision=3;s.transcript=[{kind:'task',text:'Хто працював у сеансі 07? Знайди його логін і введи check <логін>.'}];
   const restored=restoreState(JSON.stringify(s),1000);assert.deepEqual(restored.transcript,[{kind:'task',text:TASKS[0].text}]);
+});
+
+
+test('revision 4 saves update the intro, old help and service guidance in place',()=>{
+  for(const ending of [null,'release','stay']){
+    const s=toFourth(start());run(s,'hint','echo мітка','cat /sessions/session_08.log');
+    if(ending)run(s,'check мітка',ending);
+    s.contentRevision=4;
+    s.transcript=s.transcript.map(row=>row.text.startsWith('Гостьовий сеанс відкрито.')?{...row,text:'Гостьовий сеанс відкрито. Відповіді заховані у файлах цього термінала.\nПовний список — help.'}:row.kind==='system'?{...row,text:row.text.replace('Documentation:  guide','Documentation:  help')}:row.kind==='hint'?{...row,text:row.text.replace('Пояснення команд є в guide.','Список команд є в help.')}:row);
+    s.transcript.push({kind:'command',text:'guest@echo:/$ help'},
+      {kind:'output',text:'help                  список команд\nls [шлях]            вміст папки'},
+      {kind:'error',text:'Невідома команда «oops». Список доступних команд — help.'},
+      {kind:'note',text:'Попередня версія нотаток'});
+    const before=structuredClone(s);const restored=restoreState(JSON.stringify(s),1000);
+    for(const key of ['stage','ending','cwd','hints','history','sessionEntries','readPaths','revealedDirs','pendingWord','witnessedWord','nextReminderAt'])assert.deepEqual(restored[key],before[key],key);
+    assert.equal(restored.contentRevision,CONTENT_REVISION);
+    assert.ok(restored.transcript.some(row=>row.text===GUIDE));
+    assert.ok(restored.transcript.some(row=>row.text.includes('Введи guide, щоб розібратися')));
+    assert.ok(restored.transcript.some(row=>row.text.includes('Documentation:  guide')));
+    assert.ok(!restored.transcript.some(row=>row.kind==='hint'&&row.text.includes('є в help')));
+    assert.ok(restored.transcript.some(row=>row.kind==='note'&&row.text===notes(restored)));
+    for(const kind of ['archive','command','ending','choices'])assert.deepEqual(restored.transcript.filter(row=>row.kind===kind),before.transcript.filter(row=>row.kind===kind));
+    assert.deepEqual(restoreState(JSON.stringify(restored),1000),restored);
+    if(!ending){run(restored,'check мітка');assert.equal(restored.stage,4);}
+  }
 });
